@@ -85,7 +85,7 @@ export type ProductCategory =
 
 export type QuantityUnit = 'kg' | 'quintal' | 'ton';
 
-export type OrderStatus = 'Pending' | 'Accepted' | 'Ready for Delivery' | 'Delivered' | 'Rejected';
+export type OrderStatus = 'Pending' | 'Accepted' | 'Ready for Delivery' | 'In Transit' | 'Delivered' | 'Rejected';
 
 export interface FarmerProduct {
   id: string;

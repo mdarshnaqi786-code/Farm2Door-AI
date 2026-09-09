@@ -276,6 +276,11 @@ export default function App() {
                   setCurrentView('farmer_orders');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onNavigateToLogistics={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_logistics');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 activeSection="home"
               />
             )}
@@ -329,6 +334,11 @@ export default function App() {
                   setCurrentView('farmer_orders');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onNavigateToLogistics={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_logistics');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 activeSection="voice_hub"
               />
             )}
@@ -344,7 +354,12 @@ export default function App() {
 
             {/* Farmer Logistics */}
             {(currentView === 'farmer_logistics' || currentView === 'logistics') && (
-              <LogisticsPage />
+              <LogisticsPage
+                currentUser={currentUser}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
             )}
           </>
         )}
@@ -457,7 +472,12 @@ export default function App() {
 
             {/* Bulk Logistics */}
             {(currentView === 'bulk_logistics' || currentView === 'logistics') && (
-              <LogisticsPage />
+              <LogisticsPage
+                currentUser={currentUser}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
             )}
           </>
         )}

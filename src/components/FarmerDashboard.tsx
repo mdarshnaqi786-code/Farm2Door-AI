@@ -17,7 +17,8 @@ import {
   Calendar, 
   Building2,
   PhoneCall,
-  Check
+  Check,
+  Truck
 } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { speakText, stopSpeech, FARMER_VOICE_STRINGS } from '../utils/speech';
@@ -32,6 +33,7 @@ interface FarmerDashboardProps {
   onNavigateToMarketIntel: () => void;
   onNavigateToProducts?: () => void;
   onNavigateToOrders?: () => void;
+  onNavigateToLogistics?: () => void;
   activeSection?: 'home' | 'voice_hub';
 }
 
@@ -45,6 +47,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onNavigateToMarketIntel,
   onNavigateToProducts,
   onNavigateToOrders,
+  onNavigateToLogistics,
   activeSection = 'home',
 }) => {
   const [activeModal, setActiveModal] = useState<ActiveFarmerModal>('none');
@@ -473,6 +476,73 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* 3B. Smart Logistics & Route Optimization Card */}
+      <div 
+        id="farmer-logistics-banner"
+        className="bg-gradient-to-r from-emerald-900 via-teal-900 to-stone-900 rounded-3xl p-6 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/10 text-emerald-300 flex items-center justify-center shrink-0 border border-white/10">
+            <Truck className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-md">
+                Smart Logistics Module
+              </span>
+              <span className="text-[11px] text-stone-300">
+                AI Route Recommendation & Multi-Stop Dispatch
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black font-display text-white">
+              {language === 'hi' 
+                ? 'स्मार्ट रूट और डिलीवरी प्रबंधन' 
+                : language === 'te' 
+                ? 'స్మార్ట్ రూట్ & డెలివరీ నిర్వహణ' 
+                : 'Smart Logistics & Route Optimization'}
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-xl">
+              {language === 'hi'
+                ? 'डिलीवरी दूरी और परिवहन खर्च कम करने के लिए स्वचालित रूट अनुकूलन और निकटवर्ती ऑर्डर समूहीकरण।'
+                : language === 'te'
+                ? 'డెలివరీ దూరం మరియు రవాణా ఖర్చులను తగ్గించడానికి స్వయంచాలక రూట్ సిఫార్సు.'
+                : 'Reduce delivery distance and transportation costs through nearest-neighbor delivery sequencing.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
+          <button
+            onClick={() => {
+              const text = language === 'hi'
+                ? 'स्मार्ट लॉजिस्टिक्स और रूट अनुकूलन। डिलीवरी दूरी और परिवहन खर्च कम करने के लिए रूट देखें।'
+                : language === 'te'
+                ? 'స్మార్ట్ లాజిస్టిక్స్ మరియు రూట్ ఆప్టిమైజేషన్. డెలివరీ దూరం మరియు రవాణా ఖర్చులను తగ్గించండి.'
+                : 'Smart logistics and route optimization. Plan delivery stops to reduce travel distance and costs.';
+              speakText(text, language, onStartSpeech, onEndSpeech);
+            }}
+            className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 text-amber-300 border border-white/20 flex items-center justify-center cursor-pointer transition-colors"
+            title="Hear Smart Logistics description"
+            aria-label="Hear Smart Logistics description"
+          >
+            <Volume2 className="w-6 h-6" />
+          </button>
+
+          <button
+            id="open-logistics-from-dashboard-btn"
+            onClick={() => {
+              if (onNavigateToLogistics) {
+                onNavigateToLogistics();
+              }
+            }}
+            className="py-3 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <span>{language === 'hi' ? 'लॉजिस्टिक्स खोलें' : language === 'te' ? 'లాజిస్టిక్స్ చూడండి' : 'Open Smart Logistics'}</span>
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

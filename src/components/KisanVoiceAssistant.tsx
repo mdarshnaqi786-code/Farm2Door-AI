@@ -25,6 +25,7 @@ import {
   getSpeechRecognitionLocale 
 } from '../utils/languageDetection';
 import { answerMarketQueryFromData } from '../data/marketDataService';
+import { answerLogisticsQueryFromData } from '../data/logisticsDataService';
 
 interface KisanVoiceAssistantProps {
   language: LanguageCode;
@@ -177,6 +178,27 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
         hi: 'आलू का हालिया भाव ट्रेंड क्या है?',
         te: 'బంగాళాదుంప ఇటీవలి ధరల ధోరణి ఏమిటి?',
       },
+      {
+        id: 'ex-5',
+        icon: '🚚',
+        en: 'Where is my delivery?',
+        hi: 'मेरी डिलीवरी कहाँ है?',
+        te: 'నా డెలివరీ ఎక్కడ ఉంది?',
+      },
+      {
+        id: 'ex-6',
+        icon: '🗺️',
+        en: 'Show my delivery route',
+        hi: 'मेरा डिलीवरी रूट दिखाओ',
+        te: 'నా డెలివరీ రూట్ చూపించు',
+      },
+      {
+        id: 'ex-7',
+        icon: '⚡',
+        en: 'How much distance can I save?',
+        hi: 'मैं कितनी दूरी बचा सकता हूँ?',
+        te: 'నేను ఎంత దూరం ఆదా చేయగలను?',
+      },
     ],
     youAsked: {
       en: 'Your Question',
@@ -275,6 +297,27 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
 
     // Check if the query can be answered directly and accurately from the AP Mandi dataset
     const datasetAnswer = answerMarketQueryFromData(trimmed, detectedLang);
+
+    // Check if the query is a logistics query (Phase 4 Smart Logistics)
+    const logisticsAnswer = answerLogisticsQueryFromData(trimmed, detectedLang);
+    if (logisticsAnswer) {
+      setRecognizedQuestion(trimmed);
+      setInterimTranscript('');
+      handleStopSpeaking();
+      setIsGeneratingAnswer(false);
+      const newQA: QAItem = {
+        id: Date.now().toString(),
+        question: trimmed,
+        answer: logisticsAnswer,
+        language: detectedLang,
+        source: 'smart-logistics-optimizer',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setCurrentQA(newQA);
+      setHistory((prev) => [newQA, ...prev.slice(0, 5)]);
+      handlePlayAnswer(logisticsAnswer, detectedLang);
+      return;
+    }
 
     setIsGeneratingAnswer(true);
     setRecognizedQuestion(trimmed);
