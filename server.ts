@@ -60,11 +60,46 @@ const AGRICULTURAL_KNOWLEDGE = {
   }
 };
 
+// Server-side robust language detection for farmer voice questions
+function detectLanguageServer(text: string, requestedLang?: string, fallbackLang: string = 'en'): 'te' | 'hi' | 'en' {
+  const trimmed = (text || '').trim();
+  const teluguCount = (trimmed.match(/[\u0C00-\u0C7F]/g) || []).length;
+  const devanagariCount = (trimmed.match(/[\u0900-\u097F]/g) || []).length;
+
+  // 1. Script-level detection: ANY Telugu script strictly indicates Telugu
+  if (teluguCount > 0 && teluguCount >= devanagariCount) return 'te';
+  if (devanagariCount > 0) return 'hi';
+
+  // 2. If client or requested language explicitly passed 'te' or 'hi'
+  if (requestedLang === 'te' && devanagariCount === 0) return 'te';
+  if (requestedLang === 'hi' && teluguCount === 0) return 'hi';
+
+  // 3. Transliterated keyword detection
+  const lower = trimmed.toLowerCase();
+  const teluguWords = [
+    'eeroju', 'eroju', 'tamata', 'tamato', 'tomato', 'dhara', 'dharalu', 'enta', 'enti', 'entha',
+    'ekkada', 'ammali', 'ammukovali', 'panta', 'raithu', 'rythu', 'bhavamu', 'bhavam',
+    'undhi', 'unnadi', 'unnayi', 'marketlo', 'mandilo', 'namaskaram', 'telugu',
+    'ullipaya', 'ulli', 'bangaladumpa', 'aloogadda', 'mirchi', 'manchi', 'kavali'
+  ];
+  if (teluguWords.some(w => lower.includes(w))) return 'te';
+
+  const hindiWords = [
+    'aaj', 'tamatar', 'bhav', 'daam', 'kaha', 'kahan', 'kahaa', 'kya', 'hai', 'hain',
+    'bechna', 'beche', 'kitna', 'kitne', 'mandi', 'kisan', 'kripya', 'namaste', 'bataiye',
+    'pyaj', 'pyaaz', 'aloo'
+  ];
+  if (hindiWords.some(w => lower.includes(w))) return 'hi';
+
+  if (fallbackLang === 'te' || fallbackLang === 'hi') return fallbackLang;
+  return 'en';
+}
+
 function getFallbackAnswer(question: string, lang: string): string {
   const q = question.toLowerCase();
   const validLang = (lang === 'hi' || lang === 'te') ? lang : 'en';
 
-  if (q.includes('tomato') || q.includes('टमाटर') || q.includes('టమోటా')) {
+  if (q.includes('tomato') || q.includes('टमाटर') || q.includes('టమోటా') || q.includes('టమాటా') || q.includes('ధర') || q.includes('రేటు')) {
     return AGRICULTURAL_KNOWLEDGE.tomatoPrices[validLang];
   }
   if (q.includes('where') || q.includes('कहाँ') || q.includes('कहा') || q.includes('ఎక్కడ') || q.includes('sell') || q.includes('बेच') || q.includes('అమ్మాలి')) {
@@ -73,7 +108,7 @@ function getFallbackAnswer(question: string, lang: string): string {
   if (q.includes('best') || q.includes('better') || q.includes('अच्छा') || q.includes('बढ़िया') || q.includes('మంచి') || q.includes('market') || q.includes('मंडी') || q.includes('మార్కెట్')) {
     return AGRICULTURAL_KNOWLEDGE.bestMarket[validLang];
   }
-  if (q.includes('onion') || q.includes('प्याज') || q.includes('ఉల్లి')) {
+  if (q.includes('onion') || q.includes('प्याज') || q.includes('ఉల్లి') || q.includes('ఉల్లిపాయ')) {
     return AGRICULTURAL_KNOWLEDGE.onionPrices[validLang];
   }
   return AGRICULTURAL_KNOWLEDGE.generalAdvice[validLang];
@@ -81,18 +116,51 @@ function getFallbackAnswer(question: string, lang: string): string {
 
 // Kisan Voice Assistant API Endpoint
 app.post('/api/kisan-assistant', async (req, res) => {
-  const { question, language = 'en' } = req.body;
+  const { question, language, preferredLanguage, detectedLanguage } = req.body;
 
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Question is required' });
   }
 
-  const langCode = (language === 'hi' || language === 'te') ? language : 'en';
-  const targetLanguageName = langCode === 'hi' ? 'Hindi (हिन्दी)' : langCode === 'te' ? 'Telugu (తెలుగు)' : 'English';
+  // Language priority:
+  // 1. Explicit detectedLanguage / language requested
+  // 2. Language spoken/written in current question
+  // 3. Preferred language
+  const targetLangParam = detectedLanguage || language || preferredLanguage;
+  const fallbackLang = preferredLanguage || language || 'en';
+  const detectedLang: 'te' | 'hi' | 'en' = detectLanguageServer(question, targetLangParam, fallbackLang);
 
   try {
     const ai = getGeminiClient();
     if (ai) {
+      let languageInstructions = '';
+      if (detectedLang === 'te') {
+        languageInstructions = `CRITICAL LANGUAGE REQUIREMENT FOR TELUGU:
+The farmer is asking in Telugu (తెలుగు).
+You MUST respond 100% in pure Telugu (తెలుగు) using TELUGU SCRIPT (తెలుగు లిపి).
+DO NOT translate the question or the answer into English.
+DO NOT provide any English sentences, romanized English words, or English summaries.
+Address the farmer warmly in Telugu as "రైతు మిత్రమా" or "రైతు సోదరా".
+Keep the response to 2 to 3 concise sentences (40-50 words) with direct market rates and guidance so it sounds natural when spoken aloud via text-to-speech.
+
+Example of expected Telugu response:
+"ఈరోజు ప్రధాన మార్కెట్లలో నాణ్యమైన టమోటా ధర కేజీకి ₹32 నుండి ₹36 వరకు ఉంది. ఫార్మ్2డోర్ ద్వారా మీ తోట వద్దే మధ్యవర్తుల కమీషన్ లేకుండా ₹34 పూర్తి ధరకు నేరుగా అమ్మవచ్చు."`;
+      } else if (detectedLang === 'hi') {
+        languageInstructions = `CRITICAL LANGUAGE REQUIREMENT FOR HINDI:
+The farmer is asking in Hindi (हिन्दी).
+You MUST respond 100% in pure Hindi (हिन्दी) using DEVANAGARI SCRIPT (देवनागरी).
+DO NOT output English. Address the farmer warmly as "किसान भाई".
+Keep the response to 2 to 3 concise sentences (40-50 words) with direct mandi rates and guidance so it sounds natural when spoken aloud via text-to-speech.
+
+Example of expected Hindi response:
+"आज मुख्य मंडियों में उत्तम टमाटर का थोक भाव ₹32 से ₹36 प्रति किलो चल रहा है। फार्म2डोर पर सीधे बेचने से बिचौलियों का कमीशन बचेगा और ₹34 प्रति किलो पूरा दाम आपके बैंक खाते में आएगा।"`;
+      } else {
+        languageInstructions = `CRITICAL LANGUAGE REQUIREMENT FOR ENGLISH:
+The farmer is asking in English.
+Respond in clear, simple, farmer-friendly English.
+Keep the response to 2 to 3 concise sentences (40-50 words) with direct market rates and guidance.`;
+      }
+
       const systemInstruction = `You are "Kisan Voice Assistant" (किसान सहायक / రైతు సహాయకుడు) in Farm2Door AI, a direct farmer-to-buyer agricultural marketplace in India.
 Your mission is to give warm, practical, accurate agricultural market guidance to Indian farmers.
 
@@ -102,11 +170,9 @@ Market Data Context:
 - Potatoes: Agra mandi ₹16-18/kg. Cold storage availability is good.
 - Selling channels: Farm2Door allows direct sales to 120+ FPOs, institutional bulk buyers, and local consumers with refrigerated cold-chain truck pickup.
 
-CRITICAL INSTRUCTIONS:
-1. Language Requirement: You MUST respond strictly in ${targetLanguageName}. If Hindi, use Devanagari script. If Telugu, use Telugu script. If English, use simple clear English.
-2. Length: Keep your response concise (maximum 2 to 3 sentences, 40-50 words), because this response will be read aloud to the farmer over text-to-speech.
-3. Tone: Respectful, reassuring, and farmer-friendly (address the farmer warmly as 'किसान भाई' in Hindi or 'రైతు మిత్రమా / రైతు సోదరా' in Telugu if appropriate).
-4. Provide direct, actionable figures and advice immediately.`;
+${languageInstructions}
+
+Provide direct, actionable figures and advice immediately.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
@@ -118,29 +184,43 @@ CRITICAL INSTRUCTIONS:
       });
 
       const aiAnswer = response.text?.trim();
-      if (aiAnswer) {
+
+      // Guard against LLM accidentally defaulting to English for Telugu/Hindi
+      let isValidLanguageResponse = true;
+      if (detectedLang === 'te' && (!aiAnswer || !/[\u0C00-\u0C7F]/.test(aiAnswer))) {
+        console.warn('Gemini did not return Telugu script for Telugu inquiry, using verified Telugu fallback');
+        isValidLanguageResponse = false;
+      } else if (detectedLang === 'hi' && (!aiAnswer || !/[\u0900-\u097F]/.test(aiAnswer))) {
+        console.warn('Gemini did not return Devanagari script for Hindi inquiry, using verified Hindi fallback');
+        isValidLanguageResponse = false;
+      }
+
+      if (aiAnswer && isValidLanguageResponse) {
         return res.json({
           answer: aiAnswer,
           source: 'gemini',
-          language: langCode,
+          language: detectedLang,
+          detectedLanguage: detectedLang,
         });
       }
     }
 
-    // Fallback if Gemini key is missing or empty response
-    const fallbackAnswer = getFallbackAnswer(question, langCode);
+    // Fallback if Gemini key is missing, empty response, or wrong language script returned
+    const fallbackAnswer = getFallbackAnswer(question, detectedLang);
     return res.json({
       answer: fallbackAnswer,
       source: 'agricultural-intelligence',
-      language: langCode,
+      language: detectedLang,
+      detectedLanguage: detectedLang,
     });
   } catch (error) {
     console.error('Kisan Assistant Error:', error);
-    const fallbackAnswer = getFallbackAnswer(question, langCode);
+    const fallbackAnswer = getFallbackAnswer(question, detectedLang);
     return res.json({
       answer: fallbackAnswer,
       source: 'agricultural-intelligence-fallback',
-      language: langCode,
+      language: detectedLang,
+      detectedLanguage: detectedLang,
     });
   }
 });

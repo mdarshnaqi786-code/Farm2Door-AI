@@ -5,6 +5,8 @@ export type AppView =
   | 'auth'
   // Farmer views
   | 'farmer_home'
+  | 'farmer_products'
+  | 'farmer_orders'
   | 'farmer_voice_hub'
   | 'farmer_market_intel'
   | 'farmer_logistics'
@@ -14,6 +16,7 @@ export type AppView =
   | 'customer_orders'
   // Bulk Buyer views
   | 'bulk_home'
+  | 'bulk_marketplace'
   | 'bulk_orders'
   | 'bulk_market_intel'
   | 'bulk_logistics'
@@ -71,29 +74,111 @@ export interface CommodityPrice {
   history7Days: { date: string; price: number }[];
 }
 
+export type ProductCategory = 
+  | 'Vegetables'
+  | 'Fruits'
+  | 'Grains'
+  | 'Pulses'
+  | 'Spices'
+  | 'Dairy Products'
+  | 'Other Agricultural Products';
+
+export type QuantityUnit = 'kg' | 'quintal' | 'ton';
+
+export type OrderStatus = 'Pending' | 'Accepted' | 'Ready for Delivery' | 'Delivered' | 'Rejected';
+
 export interface FarmerProduct {
   id: string;
   name: string;
-  hindiName: string;
-  teluguName: string;
+  hindiName?: string;
+  teluguName?: string;
   farmerName: string;
   fpoName?: string;
+  farmerId?: string;
   location: string;
-  grade: 'Grade A' | 'Organic Certified' | 'Premium Farm Fresh';
-  pricePerKg: number;
+  grade: 'Grade A' | 'Organic Certified' | 'Premium Farm Fresh' | string;
+  category: ProductCategory;
+  pricePerUnit: number;
+  pricePerKg: number; // for compatibility with legacy cart
+  unit: QuantityUnit | string;
+  availableQty: number;
+  availableKg: number; // for compatibility with legacy cart
+  minOrderQty?: number;
   farmerShare: number; // ₹ that goes straight to farmer
   logisticsShare: number;
   platformShare: number;
-  availableKg: number;
   harvestDate: string;
+  freshnessDays?: number;
+  freshnessIndicator?: string;
   image: string;
   description: string;
-  unit: string;
+  isUserCreated?: boolean;
 }
 
 export interface CartItem {
   product: FarmerProduct;
   quantityKg: number;
+}
+
+export interface CustomerOrder {
+  id: string;
+  date: string;
+  timestamp: number;
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress: string;
+  items: {
+    productId: string;
+    productName: string;
+    category: ProductCategory;
+    quantity: number;
+    unit: string;
+    pricePerUnit: number;
+    farmerName: string;
+    farmerId?: string;
+    image?: string;
+  }[];
+  totalAmount: number;
+  farmerPayout: number;
+  status: OrderStatus;
+  speechSummary?: string;
+}
+
+export interface BulkQuoteRequest {
+  id: string;
+  productId?: string;
+  productName: string;
+  category?: ProductCategory;
+  buyerName: string;
+  buyerCompany?: string;
+  buyerContact?: string;
+  farmerName: string;
+  farmerId?: string;
+  requiredQty: number;
+  unit: QuantityUnit | string;
+  expectedPrice: number; // Expected price per unit
+  deliveryLocation: string;
+  requiredDeliveryDate: string;
+  additionalRequirements: string;
+  status: OrderStatus;
+  date: string;
+  timestamp: number;
+}
+
+export interface FarmerEnquiry {
+  id: string;
+  productId: string;
+  productName: string;
+  farmerName: string;
+  farmerId?: string;
+  buyerName: string;
+  buyerRole: 'consumer' | 'bulk_buyer';
+  buyerContact?: string;
+  message: string;
+  date: string;
+  timestamp: number;
+  replied?: boolean;
+  replyMessage?: string;
 }
 
 export interface BulkRequirement {

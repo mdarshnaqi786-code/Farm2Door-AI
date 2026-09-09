@@ -19,6 +19,11 @@ import {
 } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { speakText, stopSpeech } from '../utils/speech';
+import { 
+  detectLanguage, 
+  getStoredUserPreferredLanguage, 
+  getSpeechRecognitionLocale 
+} from '../utils/languageDetection';
 
 interface KisanVoiceAssistantProps {
   language: LanguageCode;
@@ -52,22 +57,39 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
   const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
   const [isSpeakingAnswer, setIsSpeakingAnswer] = useState(false);
   
+  const preferredLang = getStoredUserPreferredLanguage();
+  const effectiveInitialLang = (language === 'hi' || language === 'te')
+    ? language
+    : (preferredLang === 'te' || preferredLang === 'hi' ? preferredLang : 'en');
+
+  const [voiceInputLang, setVoiceInputLang] = useState<LanguageCode>(effectiveInitialLang);
+
+  useEffect(() => {
+    if (language === 'hi' || language === 'te' || language === 'en') {
+      setVoiceInputLang(language);
+    }
+  }, [language]);
+
   // Current active answer
-  const [currentQA, setCurrentQA] = useState<QAItem | null>({
-    id: 'initial-demo',
-    question: language === 'hi' 
-      ? 'आज टमाटर का मंडी भाव क्या है?' 
-      : language === 'te' 
-      ? 'ఈరోజు టమాటా ధర ఎంత?' 
-      : "What is today's tomato price?",
-    answer: language === 'hi'
-      ? 'आज मुख्य मंडियों में उत्तम टमाटर का भाव ₹32 से ₹36 प्रति किलो चल रहा है। फार्म2डोर पर सीधे बेचने पर आपको पूरे ₹34 प्रति किलो मिलेंगे और बिचौलियों का कमीशन बचेगा।'
-      : language === 'te'
-      ? 'ఈరోజు ప్రధాన మార్కెట్లలో టమోటా ధర కేజీకి ₹32 నుండి ₹36 వరకు ఉంది. ఫార్మ్2డోర్ ద్వారా నేరుగా అమ్మితే దళారుల కమీషన్ లేకుండా ₹34 పూర్తి ధర లభిస్తుంది.'
-      : "Today's tomato rate in major mandis averages ₹32 to ₹36 per kg. Selling directly through Farm2Door fetches you ₹34 per kg at your farm-gate with zero middleman deductions.",
-    language: language,
-    source: 'gemini',
-    timestamp: 'Just now'
+  const [currentQA, setCurrentQA] = useState<QAItem | null>(() => {
+    const isTelugu = effectiveInitialLang === 'te';
+    const isHindi = effectiveInitialLang === 'hi';
+    return {
+      id: 'initial-demo',
+      question: isHindi 
+        ? 'आज टमाटर का मंडी भाव क्या है?' 
+        : isTelugu 
+        ? 'ఈరోజు టమాటా ధర ఎంత?' 
+        : "What is today's tomato price?",
+      answer: isHindi
+        ? 'आज मुख्य मंडियों में उत्तम टमाटर का भाव ₹32 से ₹36 प्रति किलो चल रहा है। फार्म2डोर पर सीधे बेचने पर आपको पूरे ₹34 प्रति किलो मिलेंगे और बिचौलियों का कमीशन बचेगा।'
+        : isTelugu
+        ? 'ఈరోజు ప్రధాన మార్కెట్లలో నాణ్యమైన టమోటా ధర కేజీకి ₹32 నుండి ₹36 వరకు ఉంది. ఫార్మ్2డోర్ ద్వారా నేరుగా అమ్మితే దళారుల కమీషన్ లేకుండా ₹34 పూర్తి ధర లభిస్తుంది.'
+        : "Today's tomato rate in major mandis averages ₹32 to ₹36 per kg. Selling directly through Farm2Door fetches you ₹34 per kg at your farm-gate with zero middleman deductions.",
+      language: effectiveInitialLang,
+      source: 'gemini',
+      timestamp: 'Just now'
+    };
   });
 
   // Recent history
@@ -92,32 +114,6 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
       }
     };
   }, []);
-
-  // Language mapping for Web Speech API
-  const getSpeechLangCode = (lang: LanguageCode): string => {
-    switch (lang) {
-      case 'hi':
-        return 'hi-IN';
-      case 'te':
-        return 'te-IN';
-      case 'ta':
-        return 'ta-IN';
-      case 'kn':
-        return 'kn-IN';
-      case 'mr':
-        return 'mr-IN';
-      case 'bn':
-        return 'bn-IN';
-      case 'gu':
-        return 'gu-IN';
-      case 'pa':
-        return 'pa-IN';
-      case 'ur':
-        return 'ur-IN';
-      default:
-        return 'en-IN';
-    }
-  };
 
   // Localized texts
   const t = {
@@ -215,13 +211,23 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
     return obj[language] || obj['en'];
   };
 
-  // Play audio aloud
-  const handlePlayAnswer = (answerText: string) => {
+  // Play audio aloud in the correct language
+  const handlePlayAnswer = (answerText: string, langToUse?: LanguageCode) => {
+    // Detect language of answer text or use explicit langToUse, fallback to currentQA.language or user preference
+    const detectedLang = detectLanguage(answerText);
+    const speechLang: LanguageCode = (langToUse === 'te' || langToUse === 'hi' || langToUse === 'en')
+      ? langToUse
+      : (detectedLang === 'te' || detectedLang === 'hi' ? detectedLang : null)
+        || currentQA?.language
+        || effectiveInitialLang
+        || language
+        || 'en';
+
     setIsSpeakingAnswer(true);
     onStartSpeech();
     speakText(
       answerText,
-      language,
+      speechLang,
       () => {
         setIsSpeakingAnswer(true);
         onStartSpeech();
@@ -248,6 +254,17 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
     const trimmed = questionText.trim();
     if (!trimmed) return;
 
+    const prefLang = getStoredUserPreferredLanguage();
+    const effectivePreferred = (language === 'hi' || language === 'te')
+      ? language
+      : (prefLang === 'te' || prefLang === 'hi' ? prefLang : 'en');
+
+    // LANGUAGE PRIORITY:
+    // 1. Detect the language spoken/written in current question
+    // 2. Respond in that same language
+    // 3. If language detection fails, respond using the active voiceInputLang
+    const detectedLang: LanguageCode = detectLanguage(trimmed, voiceInputLang);
+
     setIsGeneratingAnswer(true);
     setRecognizedQuestion(trimmed);
     setInterimTranscript('');
@@ -259,7 +276,9 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: trimmed,
-          language: language,
+          language: detectedLang,
+          detectedLanguage: detectedLang,
+          preferredLanguage: voiceInputLang,
         }),
       });
 
@@ -269,12 +288,15 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
 
       const data = await response.json();
       const answer = data.answer || 'No response generated. Please try again.';
+      const finalLang: LanguageCode = (data.language === 'te' || data.language === 'hi' || data.language === 'en')
+        ? data.language
+        : detectedLang;
 
       const newQA: QAItem = {
         id: Date.now().toString(),
         question: trimmed,
         answer: answer,
-        language: language,
+        language: finalLang,
         source: data.source || 'gemini',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -282,47 +304,53 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
       setCurrentQA(newQA);
       setHistory((prev) => [newQA, ...prev.slice(0, 5)]);
 
-      // AUTOMATICALLY speak the answer aloud as mandated in user prompt
-      handlePlayAnswer(answer);
+      // AUTOMATICALLY speak the answer aloud in the farmer's language
+      handlePlayAnswer(answer, finalLang);
 
     } catch (err) {
       console.warn('AI Query failed, applying intelligent local guidance:', err);
 
-      // Local graceful fallback
+      // Local graceful fallback respecting detected language
       let fallbackText = '';
       const q = trimmed.toLowerCase();
-      if (q.includes('tomato') || q.includes('टमाटर') || q.includes('టమోటా')) {
-        fallbackText = language === 'hi'
-          ? 'आज टमाटर का मंडी भाव ₹34 प्रति किलो है। फार्म2डोर पर सीधे एफपीओ को बेचकर आप ₹34 पूरा पा सकते हैं।'
-          : language === 'te'
-          ? 'ఈరోజు టమోటా మార్కెట్ ధర కేజీకి ₹34. ఫార్మ్2డోర్ ద్వారా నేరుగా అమ్మితే పూర్తి ధర లభిస్తుంది.'
-          : 'Today tomato mandi price is ₹34/kg. On Farm2Door, farmers earn ₹34/kg with farm-gate pickup.';
-      } else if (q.includes('where') || q.includes('कहाँ') || q.includes('ఎక్కడ') || q.includes('sell') || q.includes('बेच') || q.includes('అమ్మాలి')) {
-        fallbackText = language === 'hi'
+      if (q.includes('tomato') || q.includes('टमाटर') || q.includes('టమోటా') || q.includes('టమాటా') || q.includes('ధర') || q.includes('రేటు')) {
+        fallbackText = detectedLang === 'hi'
+          ? 'आज मुख्य मंडियों में उत्तम टमाटर का थोक भाव ₹32 से ₹36 प्रति किलो चल रहा है। फार्म2डोर पर सीधे बेचने पर आपको पूरे ₹34 प्रति किलो मिलेंगे और बिचौलियों का कमीशन बचेगा।'
+          : detectedLang === 'te'
+          ? 'ఈరోజు ప్రధాన మార్కెట్లలో నాణ్యమైన టమోటా ధర కేజీకి ₹32 నుండి ₹36 వరకు ఉంది. ఫార్మ్2డోర్ ద్వారా నేరుగా అమ్మితే దళారుల కమీషన్ లేకుండా ₹34 పూర్తి ధర లభిస్తుంది.'
+          : "Today's tomato rate in major mandis averages ₹32 to ₹36 per kg. Selling directly through Farm2Door fetches you ₹34 per kg at your farm-gate with zero middleman deductions.";
+      } else if (q.includes('where') || q.includes('कहाँ') || q.includes('कहा') || q.includes('ఎక్కడ') || q.includes('sell') || q.includes('बेच') || q.includes('అమ్మాలి')) {
+        fallbackText = detectedLang === 'hi'
           ? 'आप अपनी फसल सीधे फार्म2डोर के 120+ सत्यापित एफपीओ या थोक खरीदारों को खेत से बेच सकते हैं।'
-          : language === 'te'
+          : detectedLang === 'te'
           ? 'మీరు మీ పంటను ఫార్మ్2డోర్ ద్వారా నేరుగా FPOలకు మరియు వినియోగదారులకు తోట వద్దే అమ్మవచ్చు.'
           : 'You can sell directly to 120+ verified FPOs on Farm2Door with direct farm-gate collection.';
-      } else {
-        fallbackText = language === 'hi'
+      } else if (q.includes('best') || q.includes('मंडी') || q.includes('మార్కెట్') || q.includes('మంచి')) {
+        fallbackText = detectedLang === 'hi'
           ? 'आज आजादपुर और वाशी मंडी में सबसे ऊंचे भाव हैं। लेकिन फार्म2डोर पर बेचने से 20% तक दलाली और भाड़ा बचता है।'
-          : language === 'te'
+          : detectedLang === 'te'
           ? 'నేడు ప్రధాన మార్కెట్లలో మంచి ధరలు ఉన్నాయి. ఫార్మ్2డోర్ ద్వారా అమ్మితే ఖర్చులు ఆదా అవుతాయి.'
           : 'Azadpur and Vashi mandis are paying top rates today. Direct Farm2Door sales save 18% in commissions.';
+      } else {
+        fallbackText = detectedLang === 'hi'
+          ? 'आज मुख्य मंडियों में अच्छा भाव मिल रहा है। फार्म2डोर पर सीधे बेचने से बिचौलियों का खर्च बचता है।'
+          : detectedLang === 'te'
+          ? 'ఈరోజు మార్కెట్ సమాచారం కోసం ఫార్మ్2డోర్ లైవ్ ధరలను చూడవచ్చు. టమోటా మరియు ఉల్లిపాయలకు మంచి డిమాండ్ ఉంది.'
+          : 'Farm2Door direct farm-gate sale delivers high net earnings with zero commission fees.';
       }
 
       const fallbackQA: QAItem = {
         id: Date.now().toString(),
         question: trimmed,
         answer: fallbackText,
-        language: language,
+        language: detectedLang,
         source: 'mandi-intelligence',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setCurrentQA(fallbackQA);
       setHistory((prev) => [fallbackQA, ...prev.slice(0, 5)]);
-      handlePlayAnswer(fallbackText);
+      handlePlayAnswer(fallbackText, detectedLang);
 
     } finally {
       setIsGeneratingAnswer(false);
@@ -390,7 +418,8 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
 
-      recognition.lang = getSpeechLangCode(language);
+      // Locale rules: Telugu -> 'te-IN', Hindi -> 'hi-IN', English -> 'en-IN'
+      recognition.lang = getSpeechRecognitionLocale(voiceInputLang);
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
@@ -476,7 +505,11 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
   };
 
   const handleExampleClick = (item: any) => {
-    const questionText = item[language] || item['en'];
+    const prefLang = getStoredUserPreferredLanguage();
+    const effectiveLang = (voiceInputLang === 'hi' || voiceInputLang === 'te')
+      ? voiceInputLang
+      : (language === 'hi' || language === 'te' ? language : (prefLang === 'te' || prefLang === 'hi' ? prefLang : 'en'));
+    const questionText = item[effectiveLang] || item[language] || item['en'];
     handleQueryAI(questionText);
   };
 
@@ -528,6 +561,33 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
       {/* Main Microphone Interaction Stage */}
       <div className="flex flex-col items-center justify-center py-4 sm:py-6">
         
+        {/* Active Speaking Language Selector */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
+          <span className="text-xs font-bold text-stone-500">
+            {voiceInputLang === 'te' ? 'మాట్లాడే భాష:' : voiceInputLang === 'hi' ? 'बोलने की भाषा:' : 'Speaking Language:'}
+          </span>
+          {(['en', 'hi', 'te'] as LanguageCode[]).map((l) => (
+            <button
+              key={l}
+              type="button"
+              id={`kisan-voice-lang-${l}`}
+              onClick={() => {
+                setVoiceInputLang(l);
+                onLanguageChange?.(l);
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                voiceInputLang === l
+                  ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-400'
+                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+              }`}
+            >
+              <span>
+                {l === 'te' ? '🌾 తెలుగు (te-IN)' : l === 'hi' ? '🇮🇳 हिन्दी (hi-IN)' : '🌐 English (en-IN)'}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Large Central Microphone Button */}
         <div className="relative flex items-center justify-center">
           
@@ -798,7 +858,7 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
                 ) : (
                   <button
                     id="kisan-listen-aloud-btn"
-                    onClick={() => handlePlayAnswer(currentQA.answer)}
+                    onClick={() => handlePlayAnswer(currentQA.answer, currentQA.language)}
                     className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
                     title="Hear AI Answer Read Aloud"
                     aria-label="Hear answer aloud"
@@ -823,7 +883,7 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
                   <span className="w-1.5 h-6 bg-emerald-700 rounded-full animate-pulse delay-75" />
                   <span className="w-1.5 h-3 bg-emerald-700 rounded-full animate-pulse delay-150" />
                 </span>
-                <span>Reading answer aloud in {language === 'hi' ? 'हिन्दी' : language === 'te' ? 'తెలుగు' : 'English'}...</span>
+                <span>Reading answer aloud in {currentQA.language === 'te' ? 'తెలుగు' : currentQA.language === 'hi' ? 'हिन्दी' : 'English'}...</span>
               </div>
             )}
           </div>
@@ -857,7 +917,7 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
                 <button
                   onClick={() => {
                     setCurrentQA(item);
-                    handlePlayAnswer(item.answer);
+                    handlePlayAnswer(item.answer, item.language);
                   }}
                   className="p-2 rounded-xl bg-stone-100 hover:bg-emerald-100 text-emerald-800 transition-colors shrink-0 cursor-pointer"
                   title="Listen to this past answer"

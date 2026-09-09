@@ -38,15 +38,43 @@ export const speakText = (
     en: 'en-IN',
   };
 
-  const targetBcp47 = langMap[lang] || (lang.includes('-') ? lang : 'en-IN');
+  // Smart script-based language override to guarantee Telugu script is spoken with te-IN
+  let effectiveLang = lang;
+  if (/[\u0C00-\u0C7F]/.test(text)) {
+    effectiveLang = 'te';
+  } else if (/[\u0900-\u097F]/.test(text)) {
+    effectiveLang = 'hi';
+  }
+
+  const targetBcp47 = langMap[effectiveLang] || (effectiveLang.includes('-') ? effectiveLang : 'en-IN');
   utterance.lang = targetBcp47;
 
   // Find suitable voice if available
   const voices = window.speechSynthesis.getVoices();
-  const matchedVoice = voices.find((v) => {
-    return v.lang.toLowerCase().replace('_', '-').includes(targetBcp47.toLowerCase()) ||
-           v.lang.toLowerCase().startsWith(lang.toLowerCase());
-  });
+  let matchedVoice = null;
+
+  if (voices.length > 0) {
+    if (effectiveLang === 'te' || targetBcp47 === 'te-IN') {
+      matchedVoice = voices.find((v) => {
+        const l = v.lang.toLowerCase().replace('_', '-');
+        const n = v.name.toLowerCase();
+        return l === 'te-in' || l.startsWith('te') || n.includes('telugu') || n.includes('te-in');
+      });
+    } else if (effectiveLang === 'hi' || targetBcp47 === 'hi-IN') {
+      matchedVoice = voices.find((v) => {
+        const l = v.lang.toLowerCase().replace('_', '-');
+        const n = v.name.toLowerCase();
+        return l === 'hi-in' || l.startsWith('hi') || n.includes('hindi') || n.includes('hi-in');
+      });
+    }
+
+    if (!matchedVoice) {
+      matchedVoice = voices.find((v) => {
+        const l = v.lang.toLowerCase().replace('_', '-');
+        return l.includes(targetBcp47.toLowerCase()) || l.startsWith(effectiveLang.toLowerCase());
+      });
+    }
+  }
 
   if (matchedVoice) {
     utterance.voice = matchedVoice;

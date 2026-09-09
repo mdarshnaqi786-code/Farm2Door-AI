@@ -66,8 +66,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'farmer':
         return [
           { id: 'farmer_home' as AppView, label: 'Home', icon: Home },
+          { id: 'farmer_products' as AppView, label: 'My Products', icon: Sprout },
+          { id: 'farmer_orders' as AppView, label: 'Orders & Requests', icon: Package },
           { id: 'farmer_voice_hub' as AppView, label: 'Voice Hub', icon: Mic },
-          { id: 'farmer_market_intel' as AppView, label: 'Market Intelligence', icon: TrendingUp },
+          { id: 'farmer_market_intel' as AppView, label: 'Market Intel', icon: TrendingUp },
           { id: 'farmer_logistics' as AppView, label: 'Logistics', icon: Truck },
         ];
       case 'consumer':
@@ -79,8 +81,9 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'bulk_buyer':
         return [
           { id: 'bulk_home' as AppView, label: 'Home', icon: Home },
-          { id: 'bulk_orders' as AppView, label: 'Bulk Orders', icon: Building2 },
-          { id: 'bulk_market_intel' as AppView, label: 'Market Intelligence', icon: TrendingUp },
+          { id: 'bulk_marketplace' as AppView, label: 'Farm Marketplace', icon: ShoppingBag },
+          { id: 'bulk_orders' as AppView, label: 'Bulk Sourcing', icon: Building2 },
+          { id: 'bulk_market_intel' as AppView, label: 'Market Intel', icon: TrendingUp },
           { id: 'bulk_logistics' as AppView, label: 'Logistics', icon: Truck },
         ];
       default:

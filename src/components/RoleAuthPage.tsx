@@ -161,6 +161,12 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
 
       // Save active session
       localStorage.setItem('farm2door_user_session', JSON.stringify(activeAccount));
+      if (activeAccount.language) {
+        localStorage.setItem('farm2door_preferred_language', activeAccount.language);
+        if (!localStorage.getItem('farm2door_registered_preferred_language')) {
+          localStorage.setItem('farm2door_registered_preferred_language', activeAccount.language);
+        }
+      }
       setIsLoading(false);
       onAuthSuccess(activeAccount);
     }, 450);
@@ -212,6 +218,8 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
 
       // Save active session
       localStorage.setItem('farm2door_user_session', JSON.stringify(newAccount));
+      localStorage.setItem('farm2door_registered_preferred_language', signupLanguage);
+      localStorage.setItem('farm2door_preferred_language', signupLanguage);
       setIsLoading(false);
       onAuthSuccess(newAccount);
     }, 500);

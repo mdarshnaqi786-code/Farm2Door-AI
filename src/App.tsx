@@ -14,6 +14,8 @@ import { FarmerDashboard } from './components/FarmerDashboard';
 import { CustomerHomeView } from './components/CustomerHomeView';
 import { ConsumerMarketplace } from './components/ConsumerMarketplace';
 import { CustomerOrdersView } from './components/CustomerOrdersView';
+import { FarmerProductManager } from './components/FarmerProductManager';
+import { FarmerOrdersManager } from './components/FarmerOrdersManager';
 import { BulkBuyerHomeView } from './components/BulkBuyerHomeView';
 import { BulkBuyerDashboard } from './components/BulkBuyerDashboard';
 import { MarketIntelligence } from './components/MarketIntelligence';
@@ -264,7 +266,37 @@ export default function App() {
                   setCurrentView('farmer_market_intel');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onNavigateToProducts={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_products');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToOrders={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_orders');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 activeSection="home"
+              />
+            )}
+
+            {/* Farmer Product Management (My Products) */}
+            {currentView === 'farmer_products' && (
+              <FarmerProductManager
+                currentUser={currentUser}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
+            )}
+
+            {/* Farmer Orders & Enquiries Management */}
+            {currentView === 'farmer_orders' && (
+              <FarmerOrdersManager
+                currentUser={currentUser}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
               />
             )}
 
@@ -285,6 +317,16 @@ export default function App() {
                 onNavigateToMarketIntel={() => {
                   handleStopSpeech();
                   setCurrentView('farmer_market_intel');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToProducts={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_products');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToOrders={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_orders');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 activeSection="voice_hub"
@@ -337,6 +379,7 @@ export default function App() {
             {(currentView === 'customer_marketplace' || currentView === 'consumer') && (
               <ConsumerMarketplace
                 cart={cart}
+                currentUser={currentUser}
                 onAddToCart={handleAddToCart}
                 onOpenCart={() => setIsCartOpen(true)}
               />
@@ -387,6 +430,17 @@ export default function App() {
               />
             )}
 
+            {/* Bulk Marketplace (Wholesale) */}
+            {currentView === 'bulk_marketplace' && (
+              <ConsumerMarketplace
+                cart={cart}
+                currentUser={currentUser}
+                onAddToCart={handleAddToCart}
+                onOpenCart={() => setIsCartOpen(true)}
+                bulkMode={true}
+              />
+            )}
+
             {/* Bulk Orders */}
             {(currentView === 'bulk_orders' || currentView === 'bulk_buyer') && (
               <BulkBuyerDashboard />
@@ -415,6 +469,7 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cart={cart}
+        currentUser={currentUser}
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onClearCart={handleClearCart}

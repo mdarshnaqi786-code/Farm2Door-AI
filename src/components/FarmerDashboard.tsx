@@ -30,6 +30,8 @@ interface FarmerDashboardProps {
   onStartSpeech: () => void;
   onEndSpeech: () => void;
   onNavigateToMarketIntel: () => void;
+  onNavigateToProducts?: () => void;
+  onNavigateToOrders?: () => void;
   activeSection?: 'home' | 'voice_hub';
 }
 
@@ -41,6 +43,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onStartSpeech,
   onEndSpeech,
   onNavigateToMarketIntel,
+  onNavigateToProducts,
+  onNavigateToOrders,
   activeSection = 'home',
 }) => {
   const [activeModal, setActiveModal] = useState<ActiveFarmerModal>('none');
@@ -296,7 +300,13 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
           {/* Card 1: My Products */}
           <div
             id="farmer-nav-products"
-            onClick={() => setActiveModal('products')}
+            onClick={() => {
+              if (onNavigateToProducts) {
+                onNavigateToProducts();
+              } else {
+                setActiveModal('products');
+              }
+            }}
             className="group bg-white rounded-3xl p-6 border-2 border-emerald-200 hover:border-emerald-600 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-start justify-between">
@@ -324,12 +334,12 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 {FARMER_VOICE_STRINGS.cardProducts.title[language]}
               </h3>
               <p className="text-xs font-semibold text-stone-500 mt-1">
-                {language === 'hi' ? 'टमाटर, प्याज, आलू स्टॉक' : language === 'te' ? 'టమోటా, ఉల్లి, బంగాళాదుంప' : 'Tomato, Onion, Potato Stock'}
+                {language === 'hi' ? 'फसल सूची और नया उत्पाद जोड़ें' : language === 'te' ? 'పంట జాబితా మరియు కొత్తది జోడించండి' : 'Manage Crops, Inventory & Sell Produce'}
               </p>
             </div>
 
             <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-emerald-700">
-              <span>{language === 'hi' ? 'स्टॉक देखें' : language === 'te' ? 'స్టాక్ చూడండి' : 'View Stock'}</span>
+              <span>{language === 'hi' ? 'उत्पाद प्रबंधन' : language === 'te' ? 'ఉత్పత్తుల నిర్వహణ' : 'Manage Products'}</span>
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
@@ -378,7 +388,13 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
           {/* Card 3: My Orders */}
           <div
             id="farmer-nav-orders"
-            onClick={() => setActiveModal('orders')}
+            onClick={() => {
+              if (onNavigateToOrders) {
+                onNavigateToOrders();
+              } else {
+                setActiveModal('orders');
+              }
+            }}
             className="group bg-white rounded-3xl p-6 border-2 border-emerald-200 hover:border-emerald-600 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-start justify-between">
@@ -406,12 +422,12 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 {FARMER_VOICE_STRINGS.cardOrders.title[language]}
               </h3>
               <p className="text-xs font-semibold text-stone-500 mt-1">
-                {language === 'hi' ? '2 नए आर्डर तैयार' : language === 'te' ? '2 కొత్త ఆర్డర్లు సిద్ధం' : '2 Orders Ready for Dispatch'}
+                {language === 'hi' ? 'ग्राहक आर्डर और थोक मांग' : language === 'te' ? 'కస్టమర్ ఆర్డర్లు & బల్క్ అభ్యర్థనలు' : 'Customer Orders, Bulk Quotes & Inquiries'}
               </p>
             </div>
 
             <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-700">
-              <span>{language === 'hi' ? 'आर्डर खोलें' : language === 'te' ? 'ఆర్డర్లు తెరవండి' : 'Open Orders'}</span>
+              <span>{language === 'hi' ? 'आर्डर और मांग देखें' : language === 'te' ? 'ఆర్డర్లు నిర్వహించండి' : 'Manage Orders'}</span>
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
