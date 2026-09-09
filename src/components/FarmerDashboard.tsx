@@ -29,6 +29,7 @@ interface FarmerDashboardProps {
   onStartSpeech: () => void;
   onEndSpeech: () => void;
   onNavigateToMarketIntel: () => void;
+  activeSection?: 'home' | 'voice_hub';
 }
 
 type ActiveFarmerModal = 'none' | 'products' | 'prices' | 'orders' | 'earnings';
@@ -39,6 +40,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onStartSpeech,
   onEndSpeech,
   onNavigateToMarketIntel,
+  activeSection = 'home',
 }) => {
   const [activeModal, setActiveModal] = useState<ActiveFarmerModal>('none');
   const [isListening, setIsListening] = useState(false);
@@ -236,6 +238,12 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             <Sprout className="w-10 h-10 sm:w-12 sm:h-12 stroke-[2.2]" />
           </div>
           <div>
+            {activeSection === 'voice_hub' && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black uppercase tracking-wider mb-2 border border-emerald-300">
+                <Mic className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Farmer Voice Hub</span>
+              </div>
+            )}
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-stone-900 font-display">
               {language === 'hi' ? 'फार्म2डोर एआई में आपका स्वागत है' : language === 'te' ? 'Farm2Door AI కి స్వాగతం' : 'Welcome to Farm2Door AI'}
             </h1>

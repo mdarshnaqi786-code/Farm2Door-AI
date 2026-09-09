@@ -1,25 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { AppView, LanguageCode, CartItem, FarmerProduct, UserRole, UserAccount } from './types';
+import { 
+  AppView, 
+  LanguageCode, 
+  CartItem, 
+  FarmerProduct, 
+  UserRole, 
+  UserAccount 
+} from './types';
 import { Navbar } from './components/Navbar';
 import { RoleSelectionScreen } from './components/RoleSelectionScreen';
 import { RoleAuthPage } from './components/RoleAuthPage';
 import { FarmerDashboard } from './components/FarmerDashboard';
+import { CustomerHomeView } from './components/CustomerHomeView';
 import { ConsumerMarketplace } from './components/ConsumerMarketplace';
-import { CartDrawer } from './components/CartDrawer';
+import { CustomerOrdersView } from './components/CustomerOrdersView';
+import { BulkBuyerHomeView } from './components/BulkBuyerHomeView';
 import { BulkBuyerDashboard } from './components/BulkBuyerDashboard';
 import { MarketIntelligence } from './components/MarketIntelligence';
 import { LogisticsPage } from './components/LogisticsPage';
+import { CartDrawer } from './components/CartDrawer';
+import { UserProfileModal } from './components/UserProfileModal';
 import { stopSpeech } from './utils/speech';
 
 export default function App() {
-  // Application starts strictly at Role Selection screen as requested
+  // Website opens directly at Role Selection screen. No navbar before authentication.
   const [currentView, setCurrentView] = useState<AppView>('role_selection');
   const [selectedRoleForAuth, setSelectedRoleForAuth] = useState<UserRole>('farmer');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  
-  // Active User session in LocalStorage
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Active User session
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   // Initialize session from LocalStorage
@@ -31,6 +43,14 @@ export default function App() {
         setCurrentUser(user);
         if (user.language) {
           setLanguage(user.language);
+        }
+        // Direct to role home if logged in
+        if (user.role === 'farmer') {
+          setCurrentView('farmer_home');
+        } else if (user.role === 'consumer') {
+          setCurrentView('customer_home');
+        } else if (user.role === 'bulk_buyer') {
+          setCurrentView('bulk_home');
         }
       }
     } catch (e) {
@@ -85,7 +105,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Step 2 & 3: User logs in or creates account with language selection
+  // Step 2 & 3: User logs in or signs up with preferred language
   const handleAuthSuccess = (account: UserAccount) => {
     handleStopSpeech();
     setCurrentUser(account);
@@ -93,18 +113,18 @@ export default function App() {
       setLanguage(account.language);
     }
 
-    // Automatically redirect based on selected role
+    // Redirect to respective role home
     if (account.role === 'farmer') {
-      setCurrentView('farmer');
+      setCurrentView('farmer_home');
     } else if (account.role === 'consumer') {
-      setCurrentView('consumer');
+      setCurrentView('customer_home');
     } else if (account.role === 'bulk_buyer') {
-      setCurrentView('bulk_buyer');
+      setCurrentView('bulk_home');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Logout returns user to Role Selection page
+  // Logout returns user to Role Selection page and resets session
   const handleLogout = () => {
     handleStopSpeech();
     try {
@@ -114,13 +134,7 @@ export default function App() {
     }
     setCurrentUser(null);
     setCurrentView('role_selection');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Switch Role option for demonstration purposes
-  const handleSwitchRole = () => {
-    handleStopSpeech();
-    setCurrentView('role_selection');
+    setIsProfileModalOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -158,54 +172,60 @@ export default function App() {
     setCart([]);
   };
 
+  // Check whether top navigation bar should be visible:
+  // MUST NOT be visible during role selection, login, or sign-up, or before authentication!
+  const isPreLogin =
+    !currentUser ||
+    currentView === 'role_selection' ||
+    currentView === 'auth';
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
-      {/* Sticky Navigation Header */}
-      <Navbar
-        currentView={currentView}
-        onNavigate={(view) => {
-          handleStopSpeech();
-          setCurrentView(view);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        language={language}
-        onLanguageChange={(newLang) => {
-          handleStopSpeech();
-          setLanguage(newLang);
-          if (currentUser) {
-            const updated = { ...currentUser, language: newLang };
-            setCurrentUser(updated);
-            localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
-          }
-        }}
-        cartCount={cart.reduce((s, i) => s + i.quantityKg, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-        isSpeaking={isSpeakingAudio}
-        onStopSpeech={handleStopSpeech}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onSwitchRole={handleSwitchRole}
-        onStartSpeech={handleStartSpeech}
-        onEndSpeech={handleEndSpeech}
-      />
+      
+      {/* Top Navigation Bar: ONLY shown after successful authentication */}
+      {!isPreLogin && currentUser && (
+        <Navbar
+          currentView={currentView}
+          onNavigate={(view) => {
+            handleStopSpeech();
+            setCurrentView(view);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          language={language}
+          onLanguageChange={(newLang) => {
+            handleStopSpeech();
+            setLanguage(newLang);
+            if (currentUser) {
+              const updated = { ...currentUser, language: newLang };
+              setCurrentUser(updated);
+              localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+            }
+          }}
+          cartCount={cart.reduce((s, i) => s + i.quantityKg, 0)}
+          onOpenCart={() => setIsCartOpen(true)}
+          isSpeaking={isSpeakingAudio}
+          onStopSpeech={handleStopSpeech}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          onStartSpeech={handleStartSpeech}
+          onEndSpeech={handleEndSpeech}
+        />
+      )}
 
       {/* Main View Flow */}
       <main className="flex-1">
-        {/* FIRST SCREEN: ROLE SELECTION */}
+        
+        {/* FIRST SCREEN: ROLE SELECTION (No top nav, clean welcome screen) */}
         {currentView === 'role_selection' && (
           <RoleSelectionScreen
             onSelectRole={handleSelectRole}
-            onExplorePublicView={(view) => {
-              handleStopSpeech();
-              setCurrentView(view);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
             onStartSpeech={handleStartSpeech}
             onEndSpeech={handleEndSpeech}
           />
         )}
 
-        {/* ROLE-SPECIFIC LOGIN / SIGN-UP PAGE */}
+        {/* ROLE-SPECIFIC LOGIN / SIGN-UP (No top nav) */}
         {currentView === 'auth' && (
           <RoleAuthPage
             role={selectedRoleForAuth}
@@ -220,58 +240,177 @@ export default function App() {
           />
         )}
 
-        {/* FARMER VOICE-FIRST DASHBOARD */}
-        {currentView === 'farmer' && (
-          <FarmerDashboard
-            language={language}
-            onLanguageChange={(newLang) => {
-              setLanguage(newLang);
-              if (currentUser) {
-                const updated = { ...currentUser, language: newLang };
-                setCurrentUser(updated);
-                localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
-              }
-            }}
-            onStartSpeech={handleStartSpeech}
-            onEndSpeech={handleEndSpeech}
-            onNavigateToMarketIntel={() => {
-              handleStopSpeech();
-              setCurrentView('market_intel');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
+        {/* ========================================================================= */}
+        {/* FARMER POST-LOGIN VIEWS                                                   */}
+        {/* ========================================================================= */}
+        {currentUser?.role === 'farmer' && (
+          <>
+            {/* Farmer Home */}
+            {(currentView === 'farmer_home' || currentView === 'farmer') && (
+              <FarmerDashboard
+                language={language}
+                onLanguageChange={(newLang) => {
+                  setLanguage(newLang);
+                  if (currentUser) {
+                    const updated = { ...currentUser, language: newLang };
+                    setCurrentUser(updated);
+                    localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+                  }
+                }}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+                onNavigateToMarketIntel={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_market_intel');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                activeSection="home"
+              />
+            )}
+
+            {/* Farmer Voice Hub */}
+            {currentView === 'farmer_voice_hub' && (
+              <FarmerDashboard
+                language={language}
+                onLanguageChange={(newLang) => {
+                  setLanguage(newLang);
+                  if (currentUser) {
+                    const updated = { ...currentUser, language: newLang };
+                    setCurrentUser(updated);
+                    localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+                  }
+                }}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+                onNavigateToMarketIntel={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_market_intel');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                activeSection="voice_hub"
+              />
+            )}
+
+            {/* Farmer Market Intelligence */}
+            {(currentView === 'farmer_market_intel' || currentView === 'market_intel') && (
+              <MarketIntelligence
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
+            )}
+
+            {/* Farmer Logistics */}
+            {(currentView === 'farmer_logistics' || currentView === 'logistics') && (
+              <LogisticsPage />
+            )}
+          </>
         )}
 
-        {/* CONSUMER MARKETPLACE */}
-        {currentView === 'consumer' && (
-          <ConsumerMarketplace
-            cart={cart}
-            onAddToCart={handleAddToCart}
-            onOpenCart={() => setIsCartOpen(true)}
-          />
+        {/* ========================================================================= */}
+        {/* CUSTOMER POST-LOGIN VIEWS                                                 */}
+        {/* ========================================================================= */}
+        {currentUser?.role === 'consumer' && (
+          <>
+            {/* Customer Home */}
+            {currentView === 'customer_home' && (
+              <CustomerHomeView
+                onNavigateToMarketplace={() => {
+                  handleStopSpeech();
+                  setCurrentView('customer_marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onAddToCart={handleAddToCart}
+                cart={cart}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+                onViewOrders={() => {
+                  handleStopSpeech();
+                  setCurrentView('customer_orders');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            )}
+
+            {/* Customer Marketplace */}
+            {(currentView === 'customer_marketplace' || currentView === 'consumer') && (
+              <ConsumerMarketplace
+                cart={cart}
+                onAddToCart={handleAddToCart}
+                onOpenCart={() => setIsCartOpen(true)}
+              />
+            )}
+
+            {/* Customer My Orders */}
+            {currentView === 'customer_orders' && (
+              <CustomerOrdersView
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+                onContinueShopping={() => {
+                  handleStopSpeech();
+                  setCurrentView('customer_marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            )}
+          </>
         )}
 
-        {/* BULK BUYER DASHBOARD */}
-        {currentView === 'bulk_buyer' && (
-          <BulkBuyerDashboard />
+        {/* ========================================================================= */}
+        {/* BULK BUYER POST-LOGIN VIEWS                                               */}
+        {/* ========================================================================= */}
+        {currentUser?.role === 'bulk_buyer' && (
+          <>
+            {/* Bulk Buyer Home */}
+            {currentView === 'bulk_home' && (
+              <BulkBuyerHomeView
+                onNavigateToBulkOrders={() => {
+                  handleStopSpeech();
+                  setCurrentView('bulk_orders');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToMarketIntel={() => {
+                  handleStopSpeech();
+                  setCurrentView('bulk_market_intel');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToLogistics={() => {
+                  handleStopSpeech();
+                  setCurrentView('bulk_logistics');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
+            )}
+
+            {/* Bulk Orders */}
+            {(currentView === 'bulk_orders' || currentView === 'bulk_buyer') && (
+              <BulkBuyerDashboard />
+            )}
+
+            {/* Bulk Market Intelligence */}
+            {(currentView === 'bulk_market_intel' || currentView === 'market_intel') && (
+              <MarketIntelligence
+                language={language}
+                onStartSpeech={handleStartSpeech}
+                onEndSpeech={handleEndSpeech}
+              />
+            )}
+
+            {/* Bulk Logistics */}
+            {(currentView === 'bulk_logistics' || currentView === 'logistics') && (
+              <LogisticsPage />
+            )}
+          </>
         )}
 
-        {/* MARKET INTELLIGENCE & APMC MANDI FORECASTS */}
-        {currentView === 'market_intel' && (
-          <MarketIntelligence
-            language={language}
-            onStartSpeech={handleStartSpeech}
-            onEndSpeech={handleEndSpeech}
-          />
-        )}
-
-        {/* LOGISTICS & FLEET ROUTING */}
-        {currentView === 'logistics' && (
-          <LogisticsPage />
-        )}
       </main>
 
-      {/* Slide-out Consumer Cart Drawer */}
+      {/* Slide-out Consumer Cart Drawer (Only when customer uses cart) */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -280,6 +419,20 @@ export default function App() {
         onRemoveItem={handleRemoveCartItem}
         onClearCart={handleClearCart}
       />
+
+      {/* User Profile Modal */}
+      {isProfileModalOpen && currentUser && (
+        <UserProfileModal
+          user={currentUser}
+          onClose={() => setIsProfileModalOpen(false)}
+          onLogout={handleLogout}
+          onOpenLanguageSelector={() => {
+            setIsProfileModalOpen(false);
+            // Language modal can be opened from Navbar or we can toggle
+          }}
+        />
+      )}
+
     </div>
   );
 }

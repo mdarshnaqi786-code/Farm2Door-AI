@@ -232,6 +232,15 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
             <span>Change Role</span>
           </button>
 
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center shadow-xs">
+              <Sprout className="w-4 h-4 stroke-[2.5]" />
+            </div>
+            <span className="text-base font-black tracking-tight text-stone-900 font-display">
+              Farm2Door AI
+            </span>
+          </div>
+
           {/* Speaker button to hear instructions */}
           <button
             id="auth-instruction-speaker"
@@ -266,13 +275,13 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
               </div>
             </div>
 
-            {/* Quick Demo Pre-fill for SIH Prototype */}
+            {/* Quick Demo Pre-fill */}
             <button
               id="demo-fill-btn"
               type="button"
               onClick={handleFillDemo}
               className="text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-              title="Pre-fill with sample credentials for quick hackathon evaluation"
+              title="Pre-fill with sample credentials for quick evaluation"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Demo Pre-fill</span>

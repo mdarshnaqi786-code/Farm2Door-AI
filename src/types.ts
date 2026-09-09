@@ -3,7 +3,21 @@ export type UserRole = 'farmer' | 'consumer' | 'bulk_buyer';
 export type AppView = 
   | 'role_selection'
   | 'auth'
-  | 'landing' 
+  // Farmer views
+  | 'farmer_home'
+  | 'farmer_voice_hub'
+  | 'farmer_market_intel'
+  | 'farmer_logistics'
+  // Customer views
+  | 'customer_home'
+  | 'customer_marketplace'
+  | 'customer_orders'
+  // Bulk Buyer views
+  | 'bulk_home'
+  | 'bulk_orders'
+  | 'bulk_market_intel'
+  | 'bulk_logistics'
+  // Legacy aliases for compatibility
   | 'farmer' 
   | 'consumer' 
   | 'bulk_buyer' 
