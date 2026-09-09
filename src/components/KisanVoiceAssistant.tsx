@@ -18,7 +18,8 @@ import {
   HelpCircle,
   Radio,
   ArrowRight,
-  Sparkle
+  Sparkle,
+  MicOff
 } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { speakText, stopSpeech } from '../utils/speech';
@@ -582,9 +583,9 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
   // Start / Stop Real Microphone Speech Recognition
   const handleToggleListening = async () => {
     if (isDemoMode) {
-      // In demo mode, run demo flow with current or default question
-      const sampleQuestion = EXAMPLE_QUESTIONS[0][voiceInputLang] || EXAMPLE_QUESTIONS[0].en;
-      handleExecuteDemoVoiceFlow(sampleQuestion);
+      // In Demo Mode, the live microphone button is inactive/disabled.
+      // Users must tap one of the specific example question chips below.
+      // We strictly avoid substituting EXAMPLE_QUESTIONS[0] or any fixed question.
       return;
     }
 
@@ -801,9 +802,19 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
       default:
         return {
           badge: isDemoMode ? 'DEMO MODE READY' : 'READY',
-          title: voiceInputLang === 'te' ? 'సిద్ధంగా ఉంది — మైక్ నొక్కండి లేదా ప్రశ్నను ఎంచుకోండి' : voiceInputLang === 'hi' ? 'तैयार — माइक दबाएं या सवाल चुनें' : 'Ready — Tap microphone or select a question',
-          bg: 'bg-stone-50 border-stone-200 text-stone-700',
-          dot: 'bg-emerald-500',
+          title: isDemoMode
+            ? (voiceInputLang === 'te'
+                ? 'డెమో మోడ్ సిద్ధంగా ఉంది — క్రింది ప్రశ్న కార్డులలో ఒకదానిపై నొక్కండి'
+                : voiceInputLang === 'hi'
+                ? 'डेमो मोड सक्रिय — नीचे दिए गए सवाल कार्ड पर टैप करें'
+                : 'Demo Mode Active — Tap any question chip below to test')
+            : (voiceInputLang === 'te'
+                ? 'సిద్ధంగా ఉంది — మైక్ నొక్కండి లేదా ప్రశ్నను ఎంచుకోండి'
+                : voiceInputLang === 'hi'
+                ? 'तैयार — माइक दबाएं या सवाल चुनें'
+                : 'Ready — Tap microphone or select a question'),
+          bg: isDemoMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-stone-50 border-stone-200 text-stone-700',
+          dot: isDemoMode ? 'bg-amber-500' : 'bg-emerald-500',
         };
     }
   };
@@ -879,7 +890,7 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
           <div className="flex-1">
             <span className="font-bold">Interactive Voice Demo Mode Active: </span>
             <span>
-              Tap the large microphone or any sample question below. The hub will simulate live voice listening, process the query through AI, and speak the answer aloud in Telugu, Hindi, or English.
+              The live microphone is inactive in Demo Mode. Please tap any of the sample question chips below to simulate that specific voice query. The hub will simulate voice listening, process the query through AI, and speak the answer aloud in Telugu, Hindi, or English.
             </span>
           </div>
         </div>
@@ -917,76 +928,118 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
         {/* Central Large Microphone Button */}
         <div className="relative flex items-center justify-center">
           
-          {/* Animated Pulsing Sound Rings when listening */}
-          {voiceState === 'LISTENING' && (
+          {isDemoMode ? (
+            <div className="flex flex-col items-center justify-center p-5 sm:p-6 bg-amber-50/90 border-2 border-amber-300 rounded-3xl max-w-sm w-full text-center shadow-xs">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-100 border-2 border-amber-400 text-amber-800 flex items-center justify-center mb-3 shadow-inner">
+                <Radio className="w-8 h-8 sm:w-10 sm:h-10 text-amber-600 animate-pulse" />
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 bg-amber-200 px-2.5 py-0.5 rounded-full mb-2">
+                Voice Demo Mode Active
+              </span>
+              <h4 className="text-sm sm:text-base font-bold text-stone-900 mb-1">
+                {voiceInputLang === 'te'
+                  ? 'క్రింది ప్రశ్న కార్డులపై నొక్కండి'
+                  : voiceInputLang === 'hi'
+                  ? 'नीचे दिए गए सवाल कार्ड पर टैप करें'
+                  : 'Tap Any Question Chip Below'}
+              </h4>
+              <p className="text-xs text-stone-600 font-medium mb-3 leading-relaxed">
+                {voiceInputLang === 'te'
+                  ? 'డెమో మోడ్‌లో లైవ్ మైక్రోఫోన్ ఆపివేయబడింది. నిర్దిష్ట ప్రశ్నను వాయిస్ ద్వారా పరీక్షించడానికి క్రింది ప్రశ్న కార్డులలో దేనినైనా నొక్కండి.'
+                  : voiceInputLang === 'hi'
+                  ? 'डेमो मोड में लाइव माइक्रोफ़ोन अक्षम है। किसी विशिष्ट सवाल को आवाज़ के साथ परखने के लिए नीचे दिए गए कार्ड पर टैप करें।'
+                  : 'The live microphone is disabled in Demo Mode. Select any specific example question chip below to test speech recognition & audio playback.'}
+              </p>
+              <button
+                id="kisan-tap-and-speak-btn"
+                disabled={true}
+                className="px-3.5 py-2 rounded-xl bg-stone-200 text-stone-500 font-bold text-xs cursor-not-allowed flex items-center gap-1.5 opacity-80"
+                title="Microphone is disabled in Demo Mode. Tap an example question chip below to simulate."
+              >
+                <MicOff className="w-4 h-4 text-stone-400" />
+                <span>
+                  {voiceInputLang === 'te'
+                    ? 'డెమోలో మైక్ నిలిపివేయబడింది'
+                    : voiceInputLang === 'hi'
+                    ? 'डेमो में माइक अक्षम है'
+                    : 'Mic Disabled in Demo Mode'}
+                </span>
+              </button>
+            </div>
+          ) : (
             <>
-              <div className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-red-500/20 animate-ping" />
-              <div className="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-red-500/10 animate-pulse" />
+              {/* Animated Pulsing Sound Rings when listening */}
+              {voiceState === 'LISTENING' && (
+                <>
+                  <div className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-red-500/20 animate-ping" />
+                  <div className="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-red-500/10 animate-pulse" />
+                </>
+              )}
+
+              {/* Sound waves when speaking */}
+              {voiceState === 'SPEAKING' && (
+                <>
+                  <div className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-emerald-500/20 animate-pulse" />
+                  <div className="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-teal-500/10 animate-pulse delay-100" />
+                </>
+              )}
+
+              <button
+                id="kisan-tap-and-speak-btn"
+                onClick={handleToggleListening}
+                disabled={isRequestingMic}
+                className={`w-36 h-36 sm:w-44 sm:h-44 rounded-full flex flex-col items-center justify-center text-white font-black shadow-2xl cursor-pointer transition-all duration-300 relative z-10 select-none ${
+                  voiceState === 'LISTENING'
+                    ? 'bg-red-600 scale-105 ring-8 ring-red-300 shadow-red-600/40'
+                    : voiceState === 'PROCESSING'
+                    ? 'bg-amber-600 animate-pulse ring-8 ring-amber-200'
+                    : voiceState === 'SPEAKING'
+                    ? 'bg-teal-700 ring-8 ring-teal-200 shadow-teal-700/30'
+                    : isRequestingMic
+                    ? 'bg-stone-600 animate-pulse'
+                    : 'bg-emerald-700 hover:bg-emerald-800 hover:scale-105 ring-8 ring-emerald-200/90 shadow-emerald-800/30'
+                }`}
+                aria-label="Tap and Speak voice assistant"
+              >
+                {voiceState === 'LISTENING' ? (
+                  <>
+                    <Mic className="w-14 h-14 sm:w-18 sm:h-18 animate-bounce text-white stroke-[2.5]" />
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-white">
+                      {t('voice.stopListening', language)}
+                    </span>
+                  </>
+                ) : voiceState === 'PROCESSING' ? (
+                  <>
+                    <Sparkles className="w-12 h-12 sm:w-16 sm:h-16 animate-spin text-amber-100" />
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-amber-100">
+                      Processing...
+                    </span>
+                  </>
+                ) : voiceState === 'SPEAKING' ? (
+                  <>
+                    <Volume2 className="w-14 h-14 sm:w-18 sm:h-18 animate-pulse text-white stroke-[2.5]" />
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-white">
+                      Speaking...
+                    </span>
+                  </>
+                ) : isRequestingMic ? (
+                  <>
+                    <Mic className="w-12 h-12 sm:w-16 sm:h-16 animate-pulse text-stone-200" />
+                    <span className="text-xs font-bold mt-1 text-stone-200">
+                      Starting Mic...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-14 h-14 sm:w-18 sm:h-18 stroke-[2.5]" />
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1.5">
+                      {t('voice.tapToSpeak', language)}
+                    </span>
+                  </>
+                )}
+              </button>
             </>
           )}
-
-          {/* Sound waves when speaking */}
-          {voiceState === 'SPEAKING' && (
-            <>
-              <div className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-emerald-500/20 animate-pulse" />
-              <div className="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-teal-500/10 animate-pulse delay-100" />
-            </>
-          )}
-
-          <button
-            id="kisan-tap-and-speak-btn"
-            onClick={handleToggleListening}
-            disabled={isRequestingMic}
-            className={`w-36 h-36 sm:w-44 sm:h-44 rounded-full flex flex-col items-center justify-center text-white font-black shadow-2xl cursor-pointer transition-all duration-300 relative z-10 select-none ${
-              voiceState === 'LISTENING'
-                ? 'bg-red-600 scale-105 ring-8 ring-red-300 shadow-red-600/40'
-                : voiceState === 'PROCESSING'
-                ? 'bg-amber-600 animate-pulse ring-8 ring-amber-200'
-                : voiceState === 'SPEAKING'
-                ? 'bg-teal-700 ring-8 ring-teal-200 shadow-teal-700/30'
-                : isRequestingMic
-                ? 'bg-stone-600 animate-pulse'
-                : 'bg-emerald-700 hover:bg-emerald-800 hover:scale-105 ring-8 ring-emerald-200/90 shadow-emerald-800/30'
-            }`}
-            aria-label="Tap and Speak voice assistant"
-          >
-            {voiceState === 'LISTENING' ? (
-              <>
-                <Mic className="w-14 h-14 sm:w-18 sm:h-18 animate-bounce text-white stroke-[2.5]" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-white">
-                  {t('voice.stopListening', language)}
-                </span>
-              </>
-            ) : voiceState === 'PROCESSING' ? (
-              <>
-                <Sparkles className="w-12 h-12 sm:w-16 sm:h-16 animate-spin text-amber-100" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-amber-100">
-                  Processing...
-                </span>
-              </>
-            ) : voiceState === 'SPEAKING' ? (
-              <>
-                <Volume2 className="w-14 h-14 sm:w-18 sm:h-18 animate-pulse text-white stroke-[2.5]" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1 text-white">
-                  Speaking...
-                </span>
-              </>
-            ) : isRequestingMic ? (
-              <>
-                <Mic className="w-12 h-12 sm:w-16 sm:h-16 animate-pulse text-stone-200" />
-                <span className="text-xs font-bold mt-1 text-stone-200">
-                  Starting Mic...
-                </span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-14 h-14 sm:w-18 sm:h-18 stroke-[2.5]" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider mt-1.5">
-                  {t('voice.tapToSpeak', language)}
-                </span>
-              </>
-            )}
-          </button>
         </div>
 
         {/* 3. Explicit Voice Hub State Indicator Banner */}

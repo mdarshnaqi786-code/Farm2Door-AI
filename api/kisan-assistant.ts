@@ -1,26 +1,11 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
 
 /**
- * NOTE FOR PRODUCTION DEPLOYMENTS:
- * This Express server (server.ts) is used exclusively for local development (npm run dev via tsx).
- * In production on Vercel, requests to /api/kisan-assistant and /api/health are executed by
- * the serverless functions in /api/kisan-assistant.ts and /api/health.ts.
+ * Farm2Door Kisan Voice Assistant API Route (Vercel Serverless Function).
+ * In production deployments on Vercel, requests to /api/kisan-assistant are routed
+ * directly to this serverless function instead of an Express server.
  */
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = 3000;
-
-app.use(express.json());
 
 // Lazy-initialized Gemini Client
 let aiClient: GoogleGenAI | null = null;
@@ -236,14 +221,22 @@ function getFallbackAnswer(question: string, lang: string): string {
   return AGRICULTURAL_KNOWLEDGE.generalAdvice[validLang];
 }
 
-// Health Check API Endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS configuration
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-// Kisan Voice Assistant API Endpoint
-app.post('/api/kisan-assistant', async (req, res) => {
-  const { question, language, preferredLanguage, detectedLanguage, mandiDataContext } = req.body;
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  const { question, language, preferredLanguage, detectedLanguage, mandiDataContext } = body;
 
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Question is required' });
@@ -347,7 +340,7 @@ Keep the answer concise (2 to 3 sentences, 35-50 words) so it is natural and cle
       }
 
       if (aiAnswer && isValidLanguageResponse) {
-        return res.json({
+        return res.status(200).json({
           answer: aiAnswer,
           source: 'gemini',
           language: detectedLang,
@@ -358,7 +351,7 @@ Keep the answer concise (2 to 3 sentences, 35-50 words) so it is natural and cle
 
     // Fallback if Gemini key is missing, empty response, or wrong language script returned
     const fallbackAnswer = getFallbackAnswer(question, detectedLang);
-    return res.json({
+    return res.status(200).json({
       answer: fallbackAnswer,
       source: 'agricultural-intelligence',
       language: detectedLang,
@@ -367,34 +360,11 @@ Keep the answer concise (2 to 3 sentences, 35-50 words) so it is natural and cle
   } catch (error) {
     console.error('Kisan Assistant Error:', error);
     const fallbackAnswer = getFallbackAnswer(question, detectedLang);
-    return res.json({
+    return res.status(200).json({
       answer: fallbackAnswer,
       source: 'agricultural-intelligence-fallback',
       language: detectedLang,
       detectedLanguage: detectedLang,
     });
   }
-});
-
-// Start server with Vite middleware in dev or static files in production
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Farm2Door Server running on http://0.0.0.0:${PORT}`);
-  });
 }
-
-startServer();
