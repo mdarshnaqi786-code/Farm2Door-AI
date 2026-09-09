@@ -1,6 +1,6 @@
 {
   "name": "Farm2Door AI",
-  "description": "AI-powered digital agricultural marketplace connecting farmers, consumers, and bulk buyers directly with voice-first accessibility.",
+  "description": "AI agricultural marketplace connecting farmers, consumers, and bulk buyers directly with AP mandi reference price intelligence, forecasting, and multilingual voice accessibility.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
