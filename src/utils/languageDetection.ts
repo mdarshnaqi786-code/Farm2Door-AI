@@ -18,29 +18,29 @@ export const TELUGU_UNICODE_REGEX = /[\u0C00-\u0C7F]/;
 // Devanagari (Hindi) Unicode Script Range: \u0900 - \u097F
 export const DEVANAGARI_UNICODE_REGEX = /[\u0900-\u097F]/;
 
-// Common Telugu transliterated and script keywords
+// Common Telugu transliterated keywords (strictly Telugu phonetic phrases, not English loanwords)
 const TELUGU_KEYWORDS = [
-  'eeroju', 'eroju', 'tamata', 'tamato', 'tomato', 'dhara', 'dharalu', 'enta', 'enti', 'entha',
+  'eeroju', 'eroju', 'tamata', 'tamato', 'thota', 'dhara', 'dharalu', 'enta', 'enti', 'entha',
   'ekkada', 'ammali', 'ammukovali', 'panta', 'raithu', 'rythu', 'bhavamu', 'bhavam',
-  'undhi', 'unnadi', 'unnayi', 'marketlo', 'mandilo', 'kisan', 'namaskaram',
+  'undhi', 'unnadi', 'unnayi', 'marketlo', 'mandilo', 'namaskaram',
   'telugu', 'naa', 'meeru', 'kavale', 'kavali', 'cheppandi', 'ivvandi',
-  'ullipaya', 'ulli', 'bangaladumpa', 'aloogadda', 'mirchi', 'manchi',
-  'labham', 'dharan', 'kharcheelu', 'rate-lu', 'market', 'rate'
+  'ullipaya', 'bangaladumpa', 'aloogadda', 'mirchi', 'manchi',
+  'labham', 'kharcheelu'
 ];
 
-// Common Hindi transliterated and script keywords
+// Common Hindi transliterated keywords
 const HINDI_KEYWORDS = [
   'aaj', 'tamatar', 'bhav', 'daam', 'kaha', 'kahan', 'kahaa', 'kya', 'hai', 'hain',
-  'bechna', 'beche', 'kitna', 'kitne', 'mandi', 'kisan', 'kripya', 'namaste',
+  'bechna', 'beche', 'kitna', 'kitne', 'kripya', 'namaste',
   'bataiye', 'batao', 'pyaj', 'pyaaz', 'aloo', 'fasal', 'meri', 'mera', 'kaise',
-  'accha', 'achha', 'sabzi', 'mandi', 'dam'
+  'accha', 'achha', 'sabzi', 'dam', 'chahiye'
 ];
 
 // Common English agricultural keywords
 const ENGLISH_KEYWORDS = [
   'what', 'where', 'how', 'price', 'rate', 'rates', 'sell', 'today', 'market',
-  'crop', 'crops', 'cost', 'best', 'earnings',
-  'highest', 'good', 'farmer', 'agriculture', 'produce', 'order'
+  'crop', 'crops', 'cost', 'best', 'earnings', 'tomato', 'tomatoes', 'onion', 'onions',
+  'potato', 'potatoes', 'highest', 'good', 'farmer', 'agriculture', 'produce', 'order', 'mandi'
 ];
 
 /**

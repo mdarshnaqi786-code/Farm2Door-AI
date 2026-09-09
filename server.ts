@@ -78,23 +78,26 @@ function detectLanguageServer(text: string, requestedLang?: string, fallbackLang
   // 2. If client or requested language explicitly passed 'te' or 'hi'
   if (requestedLang === 'te' && devanagariCount === 0) return 'te';
   if (requestedLang === 'hi' && teluguCount === 0) return 'hi';
+  if (requestedLang === 'en' && teluguCount === 0 && devanagariCount === 0) return 'en';
 
   // 3. Transliterated keyword detection
   const lower = trimmed.toLowerCase();
+  const words = lower.split(/[^a-zA-Z0-9]+/);
+
   const teluguWords = [
-    'eeroju', 'eroju', 'tamata', 'tamato', 'tomato', 'dhara', 'dharalu', 'enta', 'enti', 'entha',
+    'eeroju', 'eroju', 'tamata', 'tamato', 'thota', 'dhara', 'dharalu', 'enta', 'enti', 'entha',
     'ekkada', 'ammali', 'ammukovali', 'panta', 'raithu', 'rythu', 'bhavamu', 'bhavam',
     'undhi', 'unnadi', 'unnayi', 'marketlo', 'mandilo', 'namaskaram', 'telugu',
-    'ullipaya', 'ulli', 'bangaladumpa', 'aloogadda', 'mirchi', 'manchi', 'kavali'
+    'ullipaya', 'bangaladumpa', 'aloogadda', 'mirchi', 'manchi', 'kavali'
   ];
-  if (teluguWords.some(w => lower.includes(w))) return 'te';
+  if (teluguWords.some(w => words.includes(w))) return 'te';
 
   const hindiWords = [
     'aaj', 'tamatar', 'bhav', 'daam', 'kaha', 'kahan', 'kahaa', 'kya', 'hai', 'hain',
-    'bechna', 'beche', 'kitna', 'kitne', 'mandi', 'kisan', 'kripya', 'namaste', 'bataiye',
+    'bechna', 'beche', 'kitna', 'kitne', 'kripya', 'namaste', 'bataiye',
     'pyaj', 'pyaaz', 'aloo'
   ];
-  if (hindiWords.some(w => lower.includes(w))) return 'hi';
+  if (hindiWords.some(w => words.includes(w))) return 'hi';
 
   if (fallbackLang === 'te' || fallbackLang === 'hi') return fallbackLang;
   return 'en';
@@ -121,6 +124,11 @@ function getFallbackAnswer(question: string, lang: string): string {
   }
   return AGRICULTURAL_KNOWLEDGE.generalAdvice[validLang];
 }
+
+// Health Check API Endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Kisan Voice Assistant API Endpoint
 app.post('/api/kisan-assistant', async (req, res) => {
