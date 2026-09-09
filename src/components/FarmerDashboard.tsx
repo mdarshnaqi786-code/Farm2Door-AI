@@ -22,6 +22,7 @@ import {
 import { LanguageCode } from '../types';
 import { speakText, stopSpeech, FARMER_VOICE_STRINGS } from '../utils/speech';
 import { COMMODITY_PRICES } from '../data/mockData';
+import { KisanVoiceAssistant } from './KisanVoiceAssistant';
 
 interface FarmerDashboardProps {
   language: LanguageCode;
@@ -270,84 +271,14 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         </button>
       </div>
 
-      {/* 2. Large Central Microphone Button: "Tap and Speak" */}
-      <div className="text-center py-4 bg-gradient-to-b from-emerald-50/50 to-white border border-emerald-200/80 rounded-3xl p-6 sm:p-8 shadow-sm">
-        <div className="max-w-md mx-auto flex flex-col items-center">
-          
-          <button
-            id="farmer-tap-and-speak-btn"
-            onClick={handleToggleVoiceAssistant}
-            className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center text-white font-black text-lg shadow-xl cursor-pointer transition-all duration-300 relative ${
-              isListening
-                ? 'bg-red-600 scale-110 ring-8 ring-red-300 animate-pulse'
-                : 'bg-emerald-700 hover:bg-emerald-800 hover:scale-105 ring-8 ring-emerald-200/80'
-            }`}
-            aria-label="Tap and Speak voice assistant"
-          >
-            {isListening ? (
-              <Mic className="w-14 h-14 sm:w-16 sm:h-16 animate-bounce" />
-            ) : (
-              <Mic className="w-14 h-14 sm:w-16 sm:h-16" />
-            )}
-            <span className="text-xs sm:text-sm font-extrabold mt-1 tracking-wider uppercase">
-              {isListening
-                ? (language === 'hi' ? 'सुन रहे हैं...' : language === 'te' ? 'వింటున్నాము...' : 'Listening...')
-                : 'Tap and Speak'}
-            </span>
-          </button>
-
-          <p className="mt-4 text-base sm:text-lg font-bold text-stone-800">
-            {language === 'hi'
-              ? 'माइक दबाकर बोलें — मंडी भाव, फसल स्टॉक, या आर्डर'
-              : language === 'te'
-              ? 'ధరలు, పంట లేదా ఆర్డర్ల కోసం మైక్ నొక్కి మాట్లాడండి'
-              : 'Tap microphone and speak in your language'}
-          </p>
-
-          {/* Quick Voice Prompt Shortcuts for quick one-tap demonstration */}
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <span className="text-xs font-semibold text-stone-500 w-full mb-1">
-              {language === 'hi' ? 'या इनमे से चुनें:' : language === 'te' ? 'లేదా వీటిని ఎంచుకోండి:' : 'Or tap quick question:'}
-            </span>
-            <button
-              onClick={() => processFarmerVoiceCommand('Tomato market rate today')}
-              className="px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-xs sm:text-sm font-bold text-emerald-900 shadow-2xs transition-colors cursor-pointer"
-            >
-              🍅 {language === 'hi' ? 'टमाटर का भाव?' : language === 'te' ? 'టమోటా ధర ఎంత?' : 'Tomato Rate?'}
-            </button>
-            <button
-              onClick={() => processFarmerVoiceCommand('Onion mandi price')}
-              className="px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-xs sm:text-sm font-bold text-emerald-900 shadow-2xs transition-colors cursor-pointer"
-            >
-              🧅 {language === 'hi' ? 'प्याज का रेट?' : language === 'te' ? 'ఉల్లిపాయ రేటు?' : 'Onion Rate?'}
-            </button>
-            <button
-              onClick={() => processFarmerVoiceCommand('My Earnings')}
-              className="px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-xs sm:text-sm font-bold text-emerald-900 shadow-2xs transition-colors cursor-pointer"
-            >
-              💰 {language === 'hi' ? 'मेरी कमाई?' : language === 'te' ? 'నా సంపాదన ఎంత?' : 'My Earnings?'}
-            </button>
-          </div>
-
-          {/* Transcript / Reply Display */}
-          {(speechTranscript || assistantReply) && (
-            <div className="mt-5 w-full bg-emerald-100/80 border border-emerald-300 rounded-2xl p-4 text-left shadow-xs">
-              {speechTranscript && (
-                <div className="text-xs text-emerald-900 font-semibold mb-1">
-                  🎙️ {language === 'hi' ? 'आपने पूछा:' : language === 'te' ? 'మీరు అడిగారు:' : 'You said:'} &ldquo;{speechTranscript}&rdquo;
-                </div>
-              )}
-              {assistantReply && (
-                <div className="text-sm font-bold text-stone-900 flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <span>{assistantReply}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-        </div>
-      </div>
+      {/* 2. Functional Kisan Voice Assistant: Tap and Speak, Gemini AI integration, STT, and TTS */}
+      <KisanVoiceAssistant
+        language={language}
+        onLanguageChange={onLanguageChange}
+        onStartSpeech={onStartSpeech}
+        onEndSpeech={onEndSpeech}
+        activeSection={activeSection}
+      />
 
       {/* 3. Four Large Navigation Cards with Icons and Separate Speaker Buttons */}
       <div>
