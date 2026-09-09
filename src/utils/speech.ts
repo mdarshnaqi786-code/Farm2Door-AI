@@ -3,11 +3,24 @@ import { LanguageCode } from '../types';
 // Speech synthesis helper
 let currentUtterance: SpeechSynthesisUtterance | null = null;
 let cachedVoices: SpeechSynthesisVoice[] = [];
+let hasLoggedVoices = false;
+
+const logVoicesOnce = (voices: SpeechSynthesisVoice[]) => {
+  if (!hasLoggedVoices && voices.length > 0) {
+    hasLoggedVoices = true;
+    console.log(
+      'Available SpeechSynthesis voices on this system:',
+      voices.map((v) => `${v.name} (${v.lang})`)
+    );
+  }
+};
 
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   cachedVoices = window.speechSynthesis.getVoices();
+  logVoicesOnce(cachedVoices);
   window.speechSynthesis.onvoiceschanged = () => {
     cachedVoices = window.speechSynthesis.getVoices();
+    logVoicesOnce(cachedVoices);
   };
 }
 
@@ -16,6 +29,7 @@ export const getAvailableVoices = (): SpeechSynthesisVoice[] => {
     if (cachedVoices.length === 0) {
       cachedVoices = window.speechSynthesis.getVoices();
     }
+    logVoicesOnce(cachedVoices);
     return cachedVoices;
   }
   return [];
@@ -97,6 +111,18 @@ export const speakText = (
         const n = v.name.toLowerCase();
         return l === 'hi-in' || l.startsWith('hi') || n.includes('hindi') || n.includes('hi-in');
       }) || null;
+    } else if (effectiveLang === 'en' || targetBcp47 === 'en-IN') {
+      matchedVoice = voices.find((v) => {
+        const l = v.lang.toLowerCase().replace('_', '-');
+        const n = v.name.toLowerCase();
+        return l === 'en-in' || n.includes('india') || n.includes('en-in');
+      }) || null;
+
+      if (!matchedVoice) {
+        console.warn(
+          'Indian English voice (en-IN) is not installed on this browser/device. Falling back to default English voice.'
+        );
+      }
     }
 
     if (!matchedVoice) {
