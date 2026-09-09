@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { AppView, LanguageCode, CartItem, FarmerProduct } from './types';
+import React, { useState, useEffect } from 'react';
+import { AppView, LanguageCode, CartItem, FarmerProduct, UserRole, UserAccount } from './types';
 import { Navbar } from './components/Navbar';
-import { LandingPage } from './components/LandingPage';
+import { RoleSelectionScreen } from './components/RoleSelectionScreen';
+import { RoleAuthPage } from './components/RoleAuthPage';
 import { FarmerDashboard } from './components/FarmerDashboard';
 import { ConsumerMarketplace } from './components/ConsumerMarketplace';
 import { CartDrawer } from './components/CartDrawer';
@@ -11,14 +12,34 @@ import { LogisticsPage } from './components/LogisticsPage';
 import { stopSpeech } from './utils/speech';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>('landing');
+  // Application starts strictly at Role Selection screen as requested
+  const [currentView, setCurrentView] = useState<AppView>('role_selection');
+  const [selectedRoleForAuth, setSelectedRoleForAuth] = useState<UserRole>('farmer');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
+  // Active User session in LocalStorage
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  // Initialize session from LocalStorage
+  useEffect(() => {
+    try {
+      const savedSession = localStorage.getItem('farm2door_user_session');
+      if (savedSession) {
+        const user: UserAccount = JSON.parse(savedSession);
+        setCurrentUser(user);
+        if (user.language) {
+          setLanguage(user.language);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load user session from local storage:', e);
+    }
+  }, []);
+
   // Consumer Cart
   const [cart, setCart] = useState<CartItem[]>([
-    // Start with a small sample item to show immediate value
     {
       product: {
         id: 'prod-tomato-1',
@@ -54,6 +75,53 @@ export default function App() {
   const handleStopSpeech = () => {
     stopSpeech();
     setIsSpeakingAudio(false);
+  };
+
+  // Step 1: User selects role on First Screen
+  const handleSelectRole = (role: UserRole) => {
+    handleStopSpeech();
+    setSelectedRoleForAuth(role);
+    setCurrentView('auth');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Step 2 & 3: User logs in or creates account with language selection
+  const handleAuthSuccess = (account: UserAccount) => {
+    handleStopSpeech();
+    setCurrentUser(account);
+    if (account.language) {
+      setLanguage(account.language);
+    }
+
+    // Automatically redirect based on selected role
+    if (account.role === 'farmer') {
+      setCurrentView('farmer');
+    } else if (account.role === 'consumer') {
+      setCurrentView('consumer');
+    } else if (account.role === 'bulk_buyer') {
+      setCurrentView('bulk_buyer');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Logout returns user to Role Selection page
+  const handleLogout = () => {
+    handleStopSpeech();
+    try {
+      localStorage.removeItem('farm2door_user_session');
+    } catch (e) {
+      console.warn('Failed to remove session:', e);
+    }
+    setCurrentUser(null);
+    setCurrentView('role_selection');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Switch Role option for demonstration purposes
+  const handleSwitchRole = () => {
+    handleStopSpeech();
+    setCurrentView('role_selection');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddToCart = (product: FarmerProduct, quantityKg: number) => {
@@ -92,7 +160,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
-      {/* Primary Sticky Header Navigation */}
+      {/* Sticky Navigation Header */}
       <Navbar
         currentView={currentView}
         onNavigate={(view) => {
@@ -104,32 +172,66 @@ export default function App() {
         onLanguageChange={(newLang) => {
           handleStopSpeech();
           setLanguage(newLang);
+          if (currentUser) {
+            const updated = { ...currentUser, language: newLang };
+            setCurrentUser(updated);
+            localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+          }
         }}
         cartCount={cart.reduce((s, i) => s + i.quantityKg, 0)}
         onOpenCart={() => setIsCartOpen(true)}
         isSpeaking={isSpeakingAudio}
         onStopSpeech={handleStopSpeech}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onSwitchRole={handleSwitchRole}
+        onStartSpeech={handleStartSpeech}
+        onEndSpeech={handleEndSpeech}
       />
 
-      {/* Main View Router */}
+      {/* Main View Flow */}
       <main className="flex-1">
-        {currentView === 'landing' && (
-          <LandingPage
-            onSelectRole={(role) => {
+        {/* FIRST SCREEN: ROLE SELECTION */}
+        {currentView === 'role_selection' && (
+          <RoleSelectionScreen
+            onSelectRole={handleSelectRole}
+            onExplorePublicView={(view) => {
               handleStopSpeech();
-              setCurrentView(role);
+              setCurrentView(view);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            language={language}
             onStartSpeech={handleStartSpeech}
             onEndSpeech={handleEndSpeech}
           />
         )}
 
+        {/* ROLE-SPECIFIC LOGIN / SIGN-UP PAGE */}
+        {currentView === 'auth' && (
+          <RoleAuthPage
+            role={selectedRoleForAuth}
+            onBackToRoleSelection={() => {
+              handleStopSpeech();
+              setCurrentView('role_selection');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onAuthSuccess={handleAuthSuccess}
+            onStartSpeech={handleStartSpeech}
+            onEndSpeech={handleEndSpeech}
+          />
+        )}
+
+        {/* FARMER VOICE-FIRST DASHBOARD */}
         {currentView === 'farmer' && (
           <FarmerDashboard
             language={language}
-            onLanguageChange={setLanguage}
+            onLanguageChange={(newLang) => {
+              setLanguage(newLang);
+              if (currentUser) {
+                const updated = { ...currentUser, language: newLang };
+                setCurrentUser(updated);
+                localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+              }
+            }}
             onStartSpeech={handleStartSpeech}
             onEndSpeech={handleEndSpeech}
             onNavigateToMarketIntel={() => {
@@ -140,6 +242,7 @@ export default function App() {
           />
         )}
 
+        {/* CONSUMER MARKETPLACE */}
         {currentView === 'consumer' && (
           <ConsumerMarketplace
             cart={cart}
@@ -148,10 +251,12 @@ export default function App() {
           />
         )}
 
+        {/* BULK BUYER DASHBOARD */}
         {currentView === 'bulk_buyer' && (
           <BulkBuyerDashboard />
         )}
 
+        {/* MARKET INTELLIGENCE & APMC MANDI FORECASTS */}
         {currentView === 'market_intel' && (
           <MarketIntelligence
             language={language}
@@ -160,6 +265,7 @@ export default function App() {
           />
         )}
 
+        {/* LOGISTICS & FLEET ROUTING */}
         {currentView === 'logistics' && (
           <LogisticsPage />
         )}

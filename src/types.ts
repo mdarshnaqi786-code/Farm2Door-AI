@@ -1,8 +1,36 @@
 export type UserRole = 'farmer' | 'consumer' | 'bulk_buyer';
 
-export type AppView = 'landing' | 'farmer' | 'consumer' | 'bulk_buyer' | 'market_intel' | 'logistics';
+export type AppView = 
+  | 'role_selection'
+  | 'auth'
+  | 'landing' 
+  | 'farmer' 
+  | 'consumer' 
+  | 'bulk_buyer' 
+  | 'market_intel' 
+  | 'logistics';
 
-export type LanguageCode = 'en' | 'hi' | 'te';
+export type LanguageCode = string;
+
+export interface SupportedLanguage {
+  code: string;
+  nameEn: string;
+  nameNative: string;
+  scriptLabel: string;
+  bcp47: string;
+  speechAudioText: string;
+  region: string;
+}
+
+export interface UserAccount {
+  id: string;
+  fullName: string;
+  contact: string;
+  role: UserRole;
+  language: string;
+  fpoOrOrgName?: string;
+  createdAt: string;
+}
 
 export interface CommodityPrice {
   commodity: string;

@@ -23,25 +23,29 @@ export const speakText = (
   currentUtterance = utterance;
 
   // Set language tag
-  switch (lang) {
-    case 'hi':
-      utterance.lang = 'hi-IN';
-      break;
-    case 'te':
-      utterance.lang = 'te-IN';
-      break;
-    case 'en':
-    default:
-      utterance.lang = 'en-IN';
-      break;
-  }
+  const langMap: Record<string, string> = {
+    hi: 'hi-IN',
+    te: 'te-IN',
+    ta: 'ta-IN',
+    kn: 'kn-IN',
+    ml: 'ml-IN',
+    mr: 'mr-IN',
+    bn: 'bn-IN',
+    gu: 'gu-IN',
+    pa: 'pa-IN',
+    ur: 'ur-IN',
+    or: 'or-IN',
+    en: 'en-IN',
+  };
+
+  const targetBcp47 = langMap[lang] || (lang.includes('-') ? lang : 'en-IN');
+  utterance.lang = targetBcp47;
 
   // Find suitable voice if available
   const voices = window.speechSynthesis.getVoices();
   const matchedVoice = voices.find((v) => {
-    if (lang === 'hi') return v.lang.includes('hi');
-    if (lang === 'te') return v.lang.includes('te');
-    return v.lang.includes('en-IN') || v.lang.includes('en');
+    return v.lang.toLowerCase().replace('_', '-').includes(targetBcp47.toLowerCase()) ||
+           v.lang.toLowerCase().startsWith(lang.toLowerCase());
   });
 
   if (matchedVoice) {
@@ -144,4 +148,27 @@ export const FARMER_VOICE_STRINGS = {
       te: 'నా సంపాదన. దళారుల ప్రమేయం లేకుండా నేరుగా మీ బ్యాంకు ఖాతాకు చేరిన ఆదాయం చూడండి.',
     },
   },
+};
+
+export const speakRoleDescription = (
+  roleName: string,
+  description: string,
+  lang: string = 'en',
+  onStart?: () => void,
+  onEnd?: () => void
+) => {
+  const speechText = `${roleName}. ${description}`;
+  speakText(speechText, lang, onStart, onEnd);
+};
+
+export const speakLanguagePronunciation = (
+  nativeName: string,
+  englishName: string,
+  langCode: string,
+  onStart?: () => void,
+  onEnd?: () => void
+) => {
+  // Speaks native language name followed by English name
+  const speechText = `${nativeName}. ${englishName}.`;
+  speakText(speechText, langCode, onStart, onEnd);
 };
