@@ -281,6 +281,16 @@ export default function App() {
                   setCurrentView('farmer_logistics');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onNavigateToMarketplace={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToHome={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 activeSection="home"
               />
             )}
@@ -339,7 +349,27 @@ export default function App() {
                   setCurrentView('farmer_logistics');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onNavigateToMarketplace={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToHome={() => {
+                  handleStopSpeech();
+                  setCurrentView('farmer_home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 activeSection="voice_hub"
+              />
+            )}
+
+            {/* Farmer View of Consumer Marketplace */}
+            {currentView === 'farmer_marketplace' && (
+              <ConsumerMarketplace
+                cart={cart}
+                currentUser={currentUser}
+                onAddToCart={handleAddToCart}
+                onOpenCart={() => setIsCartOpen(true)}
               />
             )}
 

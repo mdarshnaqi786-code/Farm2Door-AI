@@ -2,6 +2,24 @@ import { LanguageCode } from '../types';
 
 // Speech synthesis helper
 let currentUtterance: SpeechSynthesisUtterance | null = null;
+let cachedVoices: SpeechSynthesisVoice[] = [];
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  cachedVoices = window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedVoices = window.speechSynthesis.getVoices();
+  };
+}
+
+export const getAvailableVoices = (): SpeechSynthesisVoice[] => {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (cachedVoices.length === 0) {
+      cachedVoices = window.speechSynthesis.getVoices();
+    }
+    return cachedVoices;
+  }
+  return [];
+};
 
 export const speakText = (
   text: string,
@@ -17,9 +35,22 @@ export const speakText = (
   }
 
   // Cancel any ongoing speech
-  window.speechSynthesis.cancel();
+  try {
+    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  } catch (e) {
+    // ignore
+  }
 
-  const utterance = new SpeechSynthesisUtterance(text);
+  const cleanText = text.replace(/[*#_`~]/g, '').trim();
+  if (!cleanText) {
+    onEnd?.();
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(cleanText);
   currentUtterance = utterance;
 
   // Set language tag
@@ -40,9 +71,9 @@ export const speakText = (
 
   // Smart script-based language override to guarantee Telugu script is spoken with te-IN
   let effectiveLang = lang;
-  if (/[\u0C00-\u0C7F]/.test(text)) {
+  if (/[\u0C00-\u0C7F]/.test(cleanText)) {
     effectiveLang = 'te';
-  } else if (/[\u0900-\u097F]/.test(text)) {
+  } else if (/[\u0900-\u097F]/.test(cleanText)) {
     effectiveLang = 'hi';
   }
 
@@ -50,8 +81,8 @@ export const speakText = (
   utterance.lang = targetBcp47;
 
   // Find suitable voice if available
-  const voices = window.speechSynthesis.getVoices();
-  let matchedVoice = null;
+  const voices = getAvailableVoices();
+  let matchedVoice: SpeechSynthesisVoice | null = null;
 
   if (voices.length > 0) {
     if (effectiveLang === 'te' || targetBcp47 === 'te-IN') {
@@ -59,20 +90,20 @@ export const speakText = (
         const l = v.lang.toLowerCase().replace('_', '-');
         const n = v.name.toLowerCase();
         return l === 'te-in' || l.startsWith('te') || n.includes('telugu') || n.includes('te-in');
-      });
+      }) || null;
     } else if (effectiveLang === 'hi' || targetBcp47 === 'hi-IN') {
       matchedVoice = voices.find((v) => {
         const l = v.lang.toLowerCase().replace('_', '-');
         const n = v.name.toLowerCase();
         return l === 'hi-in' || l.startsWith('hi') || n.includes('hindi') || n.includes('hi-in');
-      });
+      }) || null;
     }
 
     if (!matchedVoice) {
       matchedVoice = voices.find((v) => {
         const l = v.lang.toLowerCase().replace('_', '-');
-        return l.includes(targetBcp47.toLowerCase()) || l.startsWith(effectiveLang.toLowerCase());
-      });
+        return l === targetBcp47.toLowerCase() || l.startsWith(effectiveLang.toLowerCase());
+      }) || null;
     }
   }
 
@@ -99,7 +130,15 @@ export const speakText = (
     onEnd?.();
   };
 
-  window.speechSynthesis.speak(utterance);
+  // Safe invocation
+  setTimeout(() => {
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('speechSynthesis.speak failed:', e);
+      onEnd?.();
+    }
+  }, 10);
 };
 
 export const stopSpeech = () => {

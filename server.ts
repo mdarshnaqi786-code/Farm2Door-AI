@@ -31,12 +31,32 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// Built-in intelligent fallback knowledge for Indian agricultural mandis (AP Mandi Reference Dataset)
+// Built-in intelligent fallback knowledge for Indian agricultural mandis (AP Mandi Reference Dataset & Farm2Door Data)
 const AGRICULTURAL_KNOWLEDGE = {
   tomatoPrices: {
     en: "According to Andhra Pradesh mandi records, the modal reference price for Tomato is ₹34.0 per kg (₹3,400 per quintal), with Bowenpally and Kurnool mandis quoting the highest reference rates. On Farm2Door, farmers can list their harvest directly for buyers without middleman deductions.",
     hi: "आंध्र प्रदेश मंडी आंकड़ों के अनुसार टमाटर का मॉडल संदर्भ भाव ₹34.0 प्रति किलो (₹3,400 प्रति क्विंटल) है। बोवेनपल्ली और कुरनूल मंडियों में सबसे अच्छे संदर्भ भाव दर्ज हैं। फार्म2डोर पर सीधे बेचने पर बिचौलियों का कमीशन बचता है।",
     te: "ఆంధ్రప్రదేశ్ మార్కెట్ రికార్డుల ప్రకారం టమోటా మోడల్ రిఫరెన్స్ ధర కేజీకి ₹34.0 (క్వింటాల్‌కు ₹3,400) గా ఉంది. బోవెన్‌పల్లి మరియు కర్నూలు మార్కెట్లలో అధిక రిఫరెన్స్ రేట్లు ఉన్నాయి. ఫార్మ్2డోర్ ద్వారా నేరుగా అమ్మితే దళారుల కమీషన్ లేకుండా పూర్తి లాభం లభిస్తుంది."
+  },
+  sellingPriceTomatoes: {
+    en: "On Farm2Door, the farmer listed selling price for fresh tomatoes is ₹34.0 per kg, with ₹27.0 per kg going directly into the farmer's bank account with zero middleman deductions.",
+    hi: "फार्म2डोर पर ताजे टमाटर का किसान बिक्री मूल्य ₹34.0 प्रति किलो है, जिसमें से ₹27.0 प्रति किलो बिना किसी बिचौलिये के सीधे किसान के खाते में आता है।",
+    te: "ఫార్మ్2డోర్‌లో తాజా టమోటా రైతు అమ్మకపు ధర కేజీకి ₹34.0 గా ఉంది, ఇందులో దళారుల కోత లేకుండా ₹27.0 నేరుగా రైతు ఖాతాకు చేరుతుంది."
+  },
+  whereToBuyTomatoes: {
+    en: "You can purchase fresh tomatoes on Farm2Door Marketplace directly from Ramesh Patil (Sahyadri Kisan Producer Co.) at ₹34 per kg with verified farm-gate freshness.",
+    hi: "आप फार्म2डोर मार्केटप्लेस पर रमेश पाटिल (सह्याद्री किसान प्रोड्यूसर कंपनी) से सीधे ₹34 प्रति किलो पर खेत से ताजे तोड़े गए टमाटर खरीद सकते हैं।",
+    te: "మీరు ఫార్మ్2డోర్ మార్కెట్‌ప్లేస్‌లో రమేష్ పాటిల్ (సహ్యాద్రి కిసాన్ ప్రొడ్యూసర్ కో) నుండి కేజీకి ₹34 చొప్పున తోట వద్ద తాజా టమాటాలను నేరుగా కొనవచ్చు."
+  },
+  pendingOrders: {
+    en: "In your Farm2Door orders, you have active orders including Order #F2D-8820 for 250 kg Tomato (Ready for Delivery) and Bulk Request BLK-701 for 25 quintals (Pending confirmation).",
+    hi: "आपके फार्म2डोर खाते में सक्रिय आर्डर हैं, जिनमें आर्डर #F2D-8820 (250 किलो टमाटर, डिलीवरी के लिए तैयार) और थोक अनुरोध BLK-701 (25 क्विंटल टमाटर, पुष्टि लंबित) शामिल हैं।",
+    te: "మీ ఫార్మ్2డోర్ ఖాతాలో యాక్టివ్ ఆర్డర్లు ఉన్నాయి: ఆర్డర్ #F2D-8820 (250 కేజీల టమోటా, డెలివరీకి సిద్ధం) మరియు బల్క్ రిక్వెస్ట్ BLK-701 (25 క్వింటాళ్లు, పెండింగ్)."
+  },
+  pendingDeliveries: {
+    en: "In Farm2Door Smart Logistics, route DR-AP-01 has 2 pending farm-gate dispatches from Gollapudi Agri Yard Hub to Mangalagiri Town and Guntur City Centre.",
+    hi: "फार्म2डोर स्मार्ट लॉजिस्टिक्स में रूट DR-AP-01 पर 2 डिलीवरी लंबित हैं: गोलापुडी एग्री यार्ड हब से मंगलागिरी टाउन और गुंटूर सिटी सेंटर के लिए।",
+    te: "ఫార్మ్2డోర్ స్మార్ట్ లాజిస్టిక్స్‌లో రూట్ DR-AP-01 పై గొల్లపూడి అగ్రి యార్డ్ హబ్ నుండి మంగళగిరి మరియు గుంటూరు నగరాలకు 2 డెలివరీలు పెండింగ్‌లో ఉన్నాయి."
   },
   whereToSell: {
     en: "You have two great options: 1. Farm2Door FPO collective procurement currently offers ₹34/kg with farm-gate pickup. 2. If selling in local mandis, Bowenpally and Kurnool are recording the highest reference rates. We recommend listing on Farm2Door to save on transport and broker fees.",
@@ -57,6 +77,11 @@ const AGRICULTURAL_KNOWLEDGE = {
     en: "Potato mandi modal reference rate in Andhra Pradesh is ₹22.0 per kg (₹2,200 per quintal) with prices showing steady stability across cold storage hubs.",
     hi: "आंध्र प्रदेश में आलू का मॉडल संदर्भ भाव ₹22.0 प्रति किलो (₹2,200 प्रति क्विंटल) है और भाव कोल्ड स्टोरेज केंद्रों में स्थिर बना हुआ है।",
     te: "ఆంధ్రప్రదేశ్‌లో బంగాళాదుంప మోడల్ రిఫరెన్స్ ధర కేజీకి ₹22.0 (క్వింటాల్‌కు ₹2,200) గా స్థిరంగా కొనసాగుతోంది."
+  },
+  unavailable: {
+    en: "This specific information is currently unavailable in the verified Farm2Door application data records.",
+    hi: "यह विशिष्ट जानकारी वर्तमान में फार्म2डोर सत्यापित डेटा रिकॉर्ड में उपलब्ध नहीं है।",
+    te: "ఈ నిర్దిష్ట సమాచారం ప్రస్తుతం ఫార్మ్2డోర్ ధృవీకరించిన డేటాలో అందుబాటులో లేదు."
   },
   generalAdvice: {
     en: "As your Kisan Assistant, I monitor live Andhra Pradesh APMC mandi reference prices and direct Farm2Door buyer orders. You can ask about tomato, onion, or potato rates, highest price mandis, or price trends.",
@@ -107,6 +132,45 @@ function getFallbackAnswer(question: string, lang: string): string {
   const q = question.toLowerCase();
   const validLang = (lang === 'hi' || lang === 'te') ? lang : 'en';
 
+  // Specific application queries
+  if (
+    (q.includes('selling price') && (q.includes('tomato') || q.includes('tomatoes'))) ||
+    (q.includes('बिक्री मूल्य') || (q.includes('मेरा') && q.includes('टमाटर') && q.includes('दाम'))) ||
+    (q.includes('అమ్మకపు ధర') && q.includes('టమోటా'))
+  ) {
+    return AGRICULTURAL_KNOWLEDGE.sellingPriceTomatoes[validLang];
+  }
+
+  if (
+    (q.includes('where') && q.includes('buy') && q.includes('tomato')) ||
+    (q.includes('खरीद') && q.includes('टमाटर')) ||
+    (q.includes('కొనవచ్చు') && q.includes('టమోటా'))
+  ) {
+    return AGRICULTURAL_KNOWLEDGE.whereToBuyTomatoes[validLang];
+  }
+
+  if (
+    q.includes('pending orders') || q.includes('my orders') || q.includes('show orders') ||
+    q.includes('लंबित ऑर्डर') || q.includes('मेरे आर्डर') ||
+    q.includes('పెండింగ్ ఆర్డర్లు') || q.includes('నా ఆర్డర్లు')
+  ) {
+    return AGRICULTURAL_KNOWLEDGE.pendingOrders[validLang];
+  }
+
+  if (
+    q.includes('delivery') || q.includes('deliveries') || q.includes('dispatch') ||
+    q.includes('डिलीवरी') || q.includes('रूट') ||
+    q.includes('డెలివరీ') || q.includes('రవాణా')
+  ) {
+    return AGRICULTURAL_KNOWLEDGE.pendingDeliveries[validLang];
+  }
+
+  if (q.includes('onion') || q.includes('प्याज') || q.includes('ఉల్లి') || q.includes('ఉల్లిపాయ')) {
+    return AGRICULTURAL_KNOWLEDGE.onionPrices[validLang];
+  }
+  if (q.includes('potato') || q.includes('आलू') || q.includes('బంగాళాదుంప') || q.includes('ఆలూ')) {
+    return AGRICULTURAL_KNOWLEDGE.potatoPrices[validLang];
+  }
   if (q.includes('tomato') || q.includes('टमाटर') || q.includes('టమోటా') || q.includes('టమాటా') || q.includes('ధర') || q.includes('రేటు')) {
     return AGRICULTURAL_KNOWLEDGE.tomatoPrices[validLang];
   }
@@ -115,12 +179,6 @@ function getFallbackAnswer(question: string, lang: string): string {
   }
   if (q.includes('best') || q.includes('better') || q.includes('अच्छा') || q.includes('बढ़िया') || q.includes('మంచి') || q.includes('market') || q.includes('मंडी') || q.includes('మార్కెట్')) {
     return AGRICULTURAL_KNOWLEDGE.bestMarket[validLang];
-  }
-  if (q.includes('onion') || q.includes('प्याज') || q.includes('ఉల్లి') || q.includes('ఉల్లిపాయ')) {
-    return AGRICULTURAL_KNOWLEDGE.onionPrices[validLang];
-  }
-  if (q.includes('potato') || q.includes('आलू') || q.includes('బంగాళాదుంప') || q.includes('ఆలూ')) {
-    return AGRICULTURAL_KNOWLEDGE.potatoPrices[validLang];
   }
   return AGRICULTURAL_KNOWLEDGE.generalAdvice[validLang];
 }
@@ -177,21 +235,30 @@ Respond in clear, simple, farmer-friendly English.
 Keep the response to 2 to 3 concise sentences (40-50 words) with direct market rates and guidance.`;
       }
 
-      const systemInstruction = `You are "Kisan Voice Assistant" (किसान सहायक / రైతు సహాయకుడు) in Farm2Door AI, a direct farmer-to-buyer agricultural marketplace in India.
-Your mission is to give warm, practical, accurate agricultural market guidance to Indian farmers.
+      const systemInstruction = `You are Farm2Door AI, a helpful agricultural marketplace assistant.
 
-Market Data Context (Andhra Pradesh Mandi Reference Dataset):
-- Official Mandi Reference Prices: Tomato latest modal rate ₹34.0/kg (range ₹28-40/kg in Bowenpally, Kurnool, Warangal, Hyderabad). Upward trend +13.3%.
-- Onions: ₹28.0/kg in AP mandis.
-- Potatoes: ₹22.0/kg in AP mandis.
-- Rice: ₹42.0/kg; Wheat: ₹31.0/kg in AP mandis.
-- Terminology rule: Always refer to official APMC prices as "Mandi Reference Prices" (not farmer selling price).
-- Farm2Door benefits: Direct farm-gate pickup, guaranteed weighment, 0% broker commission.
-${mandiDataContext ? `Dataset Grounding for this specific question: "${mandiDataContext}"` : ''}
+Always answer in the same language as the user's question whenever possible.
+
+If the user is speaking Telugu, answer in Telugu using Telugu script (తెలుగు).
+If the user is speaking Hindi, answer in Hindi using Devanagari script (हिन्दी).
+If the user is speaking English, answer in English.
+
+Keep answers simple, practical and farmer-friendly.
+Keep the answer concise (2 to 3 sentences, 35-50 words) so it is clear and natural when spoken aloud via text-to-speech.
+
+Do not invent real-time market prices, weather, demand, logistics or government information.
+
+When discussing Farm2Door marketplace data, use the application's available data:
+- Andhra Pradesh APMC Mandi Reference Prices: Tomato modal rate ₹34.0/kg (Bowenpally, Kurnool), Onion modal rate ₹28.0/kg, Potato modal rate ₹22.0/kg, Rice ₹42.0/kg, Wheat ₹31.0/kg.
+- Farmer tomato selling price: ₹34.0/kg on Farm2Door (with ₹27.0/kg direct farmer payout, 0% middleman commission).
+- Buying tomatoes: Direct from Ramesh Patil (Sahyadri Kisan Producer Co., Nashik) at ₹34/kg on Farm2Door.
+- Pending orders: Order #F2D-8820 for 250 kg Tomato (Ready for Delivery) and Bulk Request BLK-701 for 25 quintals Tomato (Pending).
+- Pending deliveries: Route DR-AP-01 from Gollapudi Agri Yard Hub to Mangalagiri Town and Guntur City Centre.
+${mandiDataContext ? `Mandi Data Grounding: "${mandiDataContext}"` : ''}
 
 ${languageInstructions}
 
-Provide direct, actionable figures and advice immediately.`;
+If information is unavailable, clearly say that it is unavailable.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',

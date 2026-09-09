@@ -22,6 +22,7 @@ import {
 import { AppView, LanguageCode, UserAccount, SupportedLanguage } from '../types';
 import { INDIAN_LANGUAGES } from '../data/languages';
 import { speakLanguagePronunciation } from '../utils/speech';
+import { t } from '../data/translations';
 
 interface NavbarProps {
   currentView: AppView;
@@ -65,26 +66,26 @@ export const Navbar: React.FC<NavbarProps> = ({
     switch (currentUser.role) {
       case 'farmer':
         return [
-          { id: 'farmer_home' as AppView, label: 'Home', icon: Home },
-          { id: 'farmer_products' as AppView, label: 'My Products', icon: Sprout },
-          { id: 'farmer_orders' as AppView, label: 'Orders & Requests', icon: Package },
-          { id: 'farmer_voice_hub' as AppView, label: 'Voice Hub', icon: Mic },
-          { id: 'farmer_market_intel' as AppView, label: 'Market Intel', icon: TrendingUp },
-          { id: 'farmer_logistics' as AppView, label: 'Logistics', icon: Truck },
+          { id: 'farmer_home' as AppView, label: t('nav.home', language), icon: Home },
+          { id: 'farmer_products' as AppView, label: t('nav.myProducts', language), icon: Sprout },
+          { id: 'farmer_orders' as AppView, label: t('nav.orders', language), icon: Package },
+          { id: 'farmer_voice_hub' as AppView, label: t('nav.voiceHub', language), icon: Mic },
+          { id: 'farmer_market_intel' as AppView, label: t('nav.marketIntel', language), icon: TrendingUp },
+          { id: 'farmer_logistics' as AppView, label: t('nav.logistics', language), icon: Truck },
         ];
       case 'consumer':
         return [
-          { id: 'customer_home' as AppView, label: 'Home', icon: Home },
-          { id: 'customer_marketplace' as AppView, label: 'Marketplace', icon: ShoppingBag },
-          { id: 'customer_orders' as AppView, label: 'My Orders', icon: Package },
+          { id: 'customer_home' as AppView, label: t('nav.home', language), icon: Home },
+          { id: 'customer_marketplace' as AppView, label: t('nav.marketplace', language), icon: ShoppingBag },
+          { id: 'customer_orders' as AppView, label: t('nav.myOrders', language), icon: Package },
         ];
       case 'bulk_buyer':
         return [
-          { id: 'bulk_home' as AppView, label: 'Home', icon: Home },
-          { id: 'bulk_marketplace' as AppView, label: 'Farm Marketplace', icon: ShoppingBag },
-          { id: 'bulk_orders' as AppView, label: 'Bulk Sourcing', icon: Building2 },
-          { id: 'bulk_market_intel' as AppView, label: 'Market Intel', icon: TrendingUp },
-          { id: 'bulk_logistics' as AppView, label: 'Logistics', icon: Truck },
+          { id: 'bulk_home' as AppView, label: t('nav.home', language), icon: Home },
+          { id: 'bulk_marketplace' as AppView, label: t('nav.farmMarketplace', language), icon: ShoppingBag },
+          { id: 'bulk_orders' as AppView, label: t('nav.bulkSourcing', language), icon: Building2 },
+          { id: 'bulk_market_intel' as AppView, label: t('nav.marketIntel', language), icon: TrendingUp },
+          { id: 'bulk_logistics' as AppView, label: t('nav.logistics', language), icon: Truck },
         ];
       default:
         return [];
@@ -107,11 +108,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const getRoleBadge = () => {
     switch (currentUser.role) {
       case 'farmer':
-        return { label: 'Farmer / FPO', icon: '👨‍🌾', bg: 'bg-emerald-100 text-emerald-900 border-emerald-300' };
+        return { 
+          label: language === 'hi' ? 'किसान / एफपीओ' : language === 'te' ? 'రైతు / FPO' : 'Farmer / FPO', 
+          icon: '👨‍🌾', 
+          bg: 'bg-emerald-100 text-emerald-900 border-emerald-300' 
+        };
       case 'consumer':
-        return { label: 'Customer', icon: '🛒', bg: 'bg-amber-100 text-amber-900 border-amber-300' };
+        return { 
+          label: language === 'hi' ? 'सीधे उपभोक्ता' : language === 'te' ? 'వినియోగదారుడు' : 'Direct Consumer', 
+          icon: '🛒', 
+          bg: 'bg-amber-100 text-amber-900 border-amber-300' 
+        };
       case 'bulk_buyer':
-        return { label: 'Bulk Buyer', icon: '🏢', bg: 'bg-teal-100 text-teal-900 border-teal-300' };
+        return { 
+          label: language === 'hi' ? 'थोक खरीदार' : language === 'te' ? 'బల్క్ కొనుగోలుదారు' : 'Bulk Buyer', 
+          icon: '🏢', 
+          bg: 'bg-teal-100 text-teal-900 border-teal-300' 
+        };
     }
   };
 
@@ -186,11 +199,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   id="stop-speaking-btn"
                   onClick={onStopSpeech}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 animate-pulse transition-transform hover:scale-105 cursor-pointer"
-                  title="Stop audio playback"
-                  aria-label="Stop audio playback"
+                  title={t('voice.stopAudio', language)}
+                  aria-label={t('voice.stopAudio', language)}
                 >
                   <VolumeX className="w-4 h-4" />
-                  <span className="hidden sm:inline">Stop Audio</span>
+                  <span className="hidden sm:inline">{t('voice.stopAudio', language)}</span>
                 </button>
               )}
 

@@ -24,6 +24,7 @@ import { LanguageCode } from '../types';
 import { speakText, stopSpeech, FARMER_VOICE_STRINGS } from '../utils/speech';
 import { COMMODITY_PRICES } from '../data/mockData';
 import { KisanVoiceAssistant } from './KisanVoiceAssistant';
+import { t } from '../data/translations';
 
 interface FarmerDashboardProps {
   language: LanguageCode;
@@ -34,6 +35,8 @@ interface FarmerDashboardProps {
   onNavigateToProducts?: () => void;
   onNavigateToOrders?: () => void;
   onNavigateToLogistics?: () => void;
+  onNavigateToMarketplace?: () => void;
+  onNavigateToHome?: () => void;
   activeSection?: 'home' | 'voice_hub';
 }
 
@@ -48,6 +51,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onNavigateToProducts,
   onNavigateToOrders,
   onNavigateToLogistics,
+  onNavigateToMarketplace,
+  onNavigateToHome,
   activeSection = 'home',
 }) => {
   const [activeModal, setActiveModal] = useState<ActiveFarmerModal>('none');
@@ -285,6 +290,21 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         onStartSpeech={onStartSpeech}
         onEndSpeech={onEndSpeech}
         activeSection={activeSection}
+        onNavigate={(target: string) => {
+          if (target === 'farmer_marketplace' && onNavigateToMarketplace) {
+            onNavigateToMarketplace();
+          } else if (target === 'farmer_market_intel' && onNavigateToMarketIntel) {
+            onNavigateToMarketIntel();
+          } else if (target === 'farmer_products' && onNavigateToProducts) {
+            onNavigateToProducts();
+          } else if (target === 'farmer_orders' && onNavigateToOrders) {
+            onNavigateToOrders();
+          } else if (target === 'farmer_logistics' && onNavigateToLogistics) {
+            onNavigateToLogistics();
+          } else if (target === 'farmer_home' && onNavigateToHome) {
+            onNavigateToHome();
+          }
+        }}
       />
 
       {/* 3. Four Large Navigation Cards with Icons and Separate Speaker Buttons */}
