@@ -692,16 +692,31 @@ export function answerMarketQueryFromData(
   query: string,
   lang: 'en' | 'hi' | 'te' | string = 'en'
 ): string | null {
-  const normalizedLang = lang === 'hi' ? 'hi' : lang === 'te' ? 'te' : 'en';
+  const normalizedLang: 'en' | 'hi' | 'te' = lang === 'hi' ? 'hi' : lang === 'te' ? 'te' : 'en';
   const q = query.toLowerCase();
 
-  // Detect commodity
-  let commodity = 'Tomato';
-  if (q.includes('onion') || q.includes('प्याज') || q.includes('ఉల్లి')) {
+  // Detect commodity - do NOT default to Tomato if no commodity is mentioned
+  let commodity: string | null = null;
+  if (q.includes('onion') || q.includes('प्याज') || q.includes('प्याज़') || q.includes('ఉల్లి') || q.includes('ఉల్లిపాయ') || q.includes('ullipaya') || q.includes('pyaj')) {
     commodity = 'Onion';
-  } else if (q.includes('potato') || q.includes('आलू') || q.includes('బంగాళాదుంప') || q.includes('ఆలూ')) {
+  } else if (q.includes('potato') || q.includes('आलू') || q.includes('बంగాళాదుంప') || q.includes('బంగాళదుంప') || q.includes('ఆలూ') || q.includes('aloogadda') || q.includes('alu')) {
     commodity = 'Potato';
+  } else if (q.includes('tomato') || q.includes('tomatoes') || q.includes('टमाटर') || q.includes('టమోటా') || q.includes('టమాటా') || q.includes('tamatar')) {
+    commodity = 'Tomato';
   }
+
+  // If question is not about a known commodity, return null so specific handlers/Gemini answer it
+  if (!commodity) {
+    return null;
+  }
+
+  const COMMODITY_NAMES: Record<string, { en: string; hi: string; te: string }> = {
+    Tomato: { en: 'Tomato', hi: 'टमाटर', te: 'టమాటా' },
+    Onion: { en: 'Onion', hi: 'प्याज', te: 'ఉల్లిపాయ' },
+    Potato: { en: 'Potato', hi: 'आलू', te: 'బంగాళాదుంప' },
+  };
+
+  const commName = COMMODITY_NAMES[commodity]?.[normalizedLang] || commodity;
 
   const stats = calculateOverviewStats(commodity);
   const comparisons = calculateMarketComparison(commodity);
@@ -713,17 +728,18 @@ export function answerMarketQueryFromData(
     q.includes('which market') ||
     q.includes('सबसे ज्यादा') ||
     q.includes('सबसे ऊँचा') ||
+    q.includes('सबसे ऊंचा') ||
     q.includes('ఎక్కడ ఎక్కువ') ||
     q.includes('అధిక ధర')
   ) {
     if (!highest) return null;
     if (normalizedLang === 'hi') {
-      return `उपलब्ध आंकड़ों के अनुसार ${commodity} का सबसे ऊँचा मंडी भाव ${highest.market} (${highest.district}) में ₹${highest.latestModalPriceKg} प्रति किलो चल रहा है।`;
+      return `उपलब्ध आंकड़ों के अनुसार ${commName} का सबसे ऊँचा मंडी भाव ${highest.market} (${highest.district}) में ₹${highest.latestModalPriceKg} प्रति किलो चल रहा है।`;
     }
     if (normalizedLang === 'te') {
-      return `అందుబాటులో ఉన్న సమాచారం ప్రకారం ${commodity} అత్యధిక మార్కెట్ ధర ${highest.market} లో కేజీకి ₹${highest.latestModalPriceKg} గా ఉంది.`;
+      return `అందుబాటులో ఉన్న సమాచారం ప్రకారం ${commName} అత్యధిక మార్కెట్ రిఫరెన్స్ ధర ${highest.market} లో కిలోకు ₹${highest.latestModalPriceKg} గా ఉంది.`;
     }
-    return `According to latest mandi records, ${highest.market} (${highest.district}) has the highest reference price for ${commodity} at ₹${highest.latestModalPriceKg} per kg.`;
+    return `According to latest mandi records, ${highest.market} (${highest.district}) has the highest reference price for ${commName} at ₹${highest.latestModalPriceKg} per kg.`;
   }
 
   // 2. Price increasing / trend question
@@ -739,34 +755,40 @@ export function answerMarketQueryFromData(
     const isUp = stats.trendStatus === 'increasing';
     const isDown = stats.trendStatus === 'decreasing';
     if (normalizedLang === 'hi') {
-      return `ऐतिहासिक मंडी आंकड़ों के अनुसार ${commodity} के भाव में ${
+      return `ऐतिहासिक मंडी आंकड़ों के अनुसार ${commName} के भाव में ${
         isUp ? 'बढ़ोतरी' : isDown ? 'कमी' : 'स्थिरता'
       } दर्ज की गई है। वर्तमान औसत मॉडल भाव ₹${stats.latestModalPriceKg} प्रति किलो है।`;
     }
     if (normalizedLang === 'te') {
-      return `చారిత్రక రికార్డుల ప్రకారం ${commodity} ధరలలో ${
+      return `చారిత్రక రికార్డుల ప్రకారం ${commName} ధరలలో ${
         isUp ? 'పెరుగుదల' : isDown ? 'తగ్గుదల' : 'స్థిరత్వం'
-      } కనిపిస్తోంది. ప్రస్తుత మోడల్ ధర కేజీకి ₹${stats.latestModalPriceKg} గా ఉంది.`;
+      } కనిపిస్తోంది. ప్రస్తుత మోడల్ ధర కిలోకు ₹${stats.latestModalPriceKg} గా ఉంది.`;
     }
-    return `Historical mandi data indicates ${commodity} prices are currently ${stats.trendStatus}. The latest reference modal price is ₹${stats.latestModalPriceKg} per kg (${stats.priceChangeKg >= 0 ? '+' : ''}₹${stats.priceChangeKg}/kg).`;
+    return `Historical mandi data indicates ${commName} prices are currently ${stats.trendStatus}. The latest reference modal price is ₹${stats.latestModalPriceKg} per kg (${stats.priceChangeKg >= 0 ? '+' : ''}₹${stats.priceChangeKg}/kg).`;
   }
 
   // 3. Current reference price question
   if (
     q.includes('price') ||
     q.includes('rate') ||
+    q.includes('cost') ||
     q.includes('bhav') ||
     q.includes('भाव') ||
+    q.includes('कीमत') ||
+    q.includes('रेट') ||
+    q.includes('दाम') ||
     q.includes('ధర') ||
-    q.includes('రేటు')
+    q.includes('రేటు') ||
+    q.includes('వెల') ||
+    q.includes('ఎంత')
   ) {
     if (normalizedLang === 'hi') {
-      return `उपलब्ध मंडी आंकड़ों के अनुसार ${commodity} का वर्तमान मॉडल संदर्भ भाव ₹${stats.latestModalPriceKg} प्रति किलो (₹${stats.latestModalPriceKg * 100} प्रति क्विंटल) है। न्यूनतम भाव ₹${stats.minPriceKg} और अधिकतम ₹${stats.maxPriceKg} प्रति किलो है।`;
+      return `उपलब्ध मंडी आंकड़ों के अनुसार ${commName} का वर्तमान मॉडल संदर्भ भाव ₹${stats.latestModalPriceKg} प्रति किलो (₹${stats.latestModalPriceKg * 100} प्रति क्विंटल) है। न्यूनतम भाव ₹${stats.minPriceKg} और अधिकतम भाव ₹${stats.maxPriceKg} प्रति किलो है।`;
     }
     if (normalizedLang === 'te') {
-      return `అందుబాటులో ఉన్న రికార్డుల ప్రకారం ${commodity} ప్రస్తుత రిఫరెన్స్ మోడల్ ధర కేజీకి ₹${stats.latestModalPriceKg} (క్వింటాల్‌కు ₹${stats.latestModalPriceKg * 100}). కనిష్ట ధర ₹${stats.minPriceKg}, గరిష్ట ధర ₹${stats.maxPriceKg}.`;
+      return `అందుబాటులో ఉన్న రికార్డుల ప్రకారం ${commName} యొక్క ప్రస్తుత మార్కెట్ రిఫరెన్స్ ధర కిలోకు ₹${stats.latestModalPriceKg} (క్వింటాల్‌కు ₹${stats.latestModalPriceKg * 100}) గా ఉంది. కనిష్ట ధర ₹${stats.minPriceKg}, గరిష్ట ధర ₹${stats.maxPriceKg}.`;
     }
-    return `According to available mandi data, ${commodity} modal reference price is ₹${stats.latestModalPriceKg} per kg (₹${stats.latestModalPriceKg * 100} per quintal), with minimum ₹${stats.minPriceKg}/kg and maximum ₹${stats.maxPriceKg}/kg.`;
+    return `According to available mandi data, ${commName} modal reference price is ₹${stats.latestModalPriceKg} per kg (₹${stats.latestModalPriceKg * 100} per quintal), with minimum ₹${stats.minPriceKg}/kg and maximum ₹${stats.maxPriceKg}/kg.`;
   }
 
   return null;
