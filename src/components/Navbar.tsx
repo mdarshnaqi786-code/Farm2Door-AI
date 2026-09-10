@@ -17,7 +17,10 @@ import {
   Menu, 
   X,
   Wheat,
-  Check
+  Check,
+  ShieldCheck,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 import { AppView, LanguageCode, UserAccount, SupportedLanguage } from '../types';
 import { INDIAN_LANGUAGES } from '../data/languages';
@@ -33,7 +36,7 @@ interface NavbarProps {
   onOpenCart: () => void;
   isSpeaking: boolean;
   onStopSpeech: () => void;
-  currentUser: UserAccount;
+  currentUser: UserAccount | null;
   onLogout: () => void;
   onOpenProfile: () => void;
   onStartSpeech: () => void;
@@ -61,8 +64,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   const currentLangObj =
     INDIAN_LANGUAGES.find((l) => l.code === language) || INDIAN_LANGUAGES[0];
 
-  // Configure role-specific navigation links strictly according to user requirements
+  // Configure navigation links: role-specific if authenticated, or public explore if pre-login
   const getNavLinks = () => {
+    if (!currentUser) {
+      return [
+        { id: 'landing' as AppView, label: t('nav.home', language) || 'Home', icon: Home },
+        { id: 'customer_marketplace' as AppView, label: t('nav.marketplace', language) || 'Marketplace', icon: ShoppingBag },
+        { id: 'farmer_market_intel' as AppView, label: t('nav.marketIntel', language) || 'Market Intel', icon: TrendingUp },
+        { id: 'farmer_voice_hub' as AppView, label: t('nav.voiceHub', language) || 'Voice AI', icon: Mic },
+      ];
+    }
+
     switch (currentUser.role) {
       case 'farmer':
         return [
@@ -78,6 +90,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           { id: 'customer_home' as AppView, label: t('nav.home', language), icon: Home },
           { id: 'customer_marketplace' as AppView, label: t('nav.marketplace', language), icon: ShoppingBag },
           { id: 'customer_orders' as AppView, label: t('nav.myOrders', language), icon: Package },
+        ];
+      case 'admin':
+        return [
+          { id: 'admin_dashboard' as AppView, label: 'Admin Dashboard', icon: ShieldCheck },
         ];
       case 'bulk_buyer':
         return [
@@ -106,6 +122,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const getRoleBadge = () => {
+    if (!currentUser) {
+      return {
+        label: 'Direct Marketplace',
+        icon: '🌿',
+        bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      };
+    }
+
     switch (currentUser.role) {
       case 'farmer':
         return { 
@@ -115,9 +139,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         };
       case 'consumer':
         return { 
-          label: language === 'hi' ? 'सीधे उपभोक्ता' : language === 'te' ? 'వినియోగదారుడు' : 'Direct Consumer', 
+          label: language === 'hi' ? 'सीधे उपभोक्ता' : language === 'te' ? 'వినియోగదారుడు' : 'Customer', 
           icon: '🛒', 
           bg: 'bg-amber-100 text-amber-900 border-amber-300' 
+        };
+      case 'admin':
+        return { 
+          label: 'Admin (naqi)', 
+          icon: '🛡️', 
+          bg: 'bg-purple-100 text-purple-900 border-purple-300' 
         };
       case 'bulk_buyer':
         return { 
@@ -144,7 +174,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             {/* Left: Brand Logo & Role Badge */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2.5">
+              <div 
+                className="flex items-center gap-2.5 cursor-pointer" 
+                onClick={() => onNavigate(currentUser ? (currentUser.role === 'farmer' ? 'farmer_home' : currentUser.role === 'consumer' ? 'customer_home' : currentUser.role === 'admin' ? 'admin_dashboard' : 'bulk_home') : 'landing')}
+              >
                 <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center shadow-md shadow-emerald-700/20">
                   <Sprout className="w-5 h-5 stroke-[2.5]" />
                 </div>
@@ -190,7 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               })}
             </nav>
 
-            {/* Right: Actions (Audio, Language, Cart, Profile, Logout) */}
+            {/* Right: Actions (Audio, Language, Cart, Profile, Logout OR Login/Signup) */}
             <div className="flex items-center gap-2 sm:gap-2.5">
               
               {/* Speaking Indicator & Stop Button */}
@@ -220,48 +253,72 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="lg:hidden">{currentLangObj.code.toUpperCase()}</span>
               </button>
 
-              {/* Cart Button: ONLY visible for Customer role */}
-              {currentUser.role === 'consumer' && (
-                <button
-                  id="navbar-cart-btn"
-                  onClick={onOpenCart}
-                  className="relative p-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors cursor-pointer"
-                  title="Open Cart"
-                  aria-label="Open Shopping Cart"
-                >
-                  <ShoppingCart className="w-5 h-5 text-stone-800" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
-                      {cartCount}
-                    </span>
+              {currentUser ? (
+                <>
+                  {/* Cart Button: ONLY visible for Customer role */}
+                  {currentUser.role === 'consumer' && (
+                    <button
+                      id="navbar-cart-btn"
+                      onClick={onOpenCart}
+                      className="relative p-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors cursor-pointer"
+                      title="Open Cart"
+                      aria-label="Open Shopping Cart"
+                    >
+                      <ShoppingCart className="w-5 h-5 text-stone-800" />
+                      {cartCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                          {cartCount}
+                        </span>
+                      )}
+                    </button>
                   )}
-                </button>
+
+                  {/* Profile Button */}
+                  <button
+                    id="navbar-profile-btn"
+                    onClick={onOpenProfile}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs sm:text-sm font-bold border border-stone-200 transition-colors cursor-pointer"
+                    title="View Profile"
+                    aria-label="View user profile"
+                  >
+                    <User className="w-4 h-4 text-stone-600" />
+                    <span className="hidden sm:inline truncate max-w-[110px]">
+                      {currentUser.fullName.split(' ')[0]}
+                    </span>
+                  </button>
+
+                  {/* Logout Button */}
+                  <button
+                    id="navbar-logout-btn"
+                    onClick={onLogout}
+                    className="p-2.5 rounded-xl bg-stone-50 hover:bg-red-50 text-stone-600 hover:text-red-700 border border-stone-200 hover:border-red-200 transition-colors cursor-pointer"
+                    title="Logout"
+                    aria-label="Logout"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    id="navbar-login-btn"
+                    onClick={() => onNavigate('auth')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs sm:text-sm font-bold border border-stone-300 transition-colors cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Login</span>
+                  </button>
+
+                  <button
+                    id="navbar-signup-btn"
+                    onClick={() => onNavigate('role_selection')}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Sign Up</span>
+                  </button>
+                </div>
               )}
-
-              {/* Profile Button */}
-              <button
-                id="navbar-profile-btn"
-                onClick={onOpenProfile}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs sm:text-sm font-bold border border-stone-200 transition-colors cursor-pointer"
-                title="View Profile"
-                aria-label="View user profile"
-              >
-                <User className="w-4 h-4 text-stone-600" />
-                <span className="hidden sm:inline truncate max-w-[110px]">
-                  {currentUser.fullName.split(' ')[0]}
-                </span>
-              </button>
-
-              {/* Logout Button */}
-              <button
-                id="navbar-logout-btn"
-                onClick={onLogout}
-                className="p-2.5 rounded-xl bg-stone-50 hover:bg-red-50 text-stone-600 hover:text-red-700 border border-stone-200 hover:border-red-200 transition-colors cursor-pointer"
-                title="Logout"
-                aria-label="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
 
               {/* Mobile Menu Toggle Button */}
               <button
@@ -283,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="px-2 py-1 mb-2">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${roleBadge.bg}`}>
                   <span>{roleBadge.icon}</span>
-                  <span>{currentUser.fullName} ({roleBadge.label})</span>
+                  <span>{currentUser ? `${currentUser.fullName} (${roleBadge.label})` : 'Farm2Door Direct Marketplace'}</span>
                 </span>
               </div>
 
@@ -310,28 +367,56 @@ export const Navbar: React.FC<NavbarProps> = ({
                 );
               })}
 
-              <div className="pt-2 border-t border-stone-200 flex items-center justify-between px-2">
+              <div className="pt-2 border-t border-stone-200 flex flex-col gap-2 px-2">
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     setIsLanguageModalOpen(true);
                   }}
-                  className="flex items-center gap-2 text-sm font-bold text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl"
+                  className="flex items-center justify-between text-sm font-bold text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl"
                 >
-                  <Languages className="w-4 h-4" />
-                  <span>Language: {currentLangObj.nameNative}</span>
+                  <div className="flex items-center gap-2">
+                    <Languages className="w-4 h-4" />
+                    <span>Language: {currentLangObj.nameNative}</span>
+                  </div>
+                  <span className="text-xs uppercase text-emerald-600 font-semibold">{currentLangObj.code}</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onLogout();
-                  }}
-                  className="flex items-center gap-1.5 text-sm font-bold text-red-700 bg-red-50 px-3 py-2 rounded-xl"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout</span>
-                </button>
+                {currentUser ? (
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="flex items-center justify-center gap-1.5 text-sm font-bold text-red-700 bg-red-50 px-3 py-2 rounded-xl w-full"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onNavigate('auth');
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-stone-100 text-stone-800 font-bold text-sm"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Login</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onNavigate('role_selection');
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-sm"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Sign Up</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

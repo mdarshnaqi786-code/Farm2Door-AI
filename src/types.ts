@@ -1,8 +1,11 @@
-export type UserRole = 'farmer' | 'consumer' | 'bulk_buyer';
+export type UserRole = 'farmer' | 'consumer' | 'admin' | 'bulk_buyer';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export type AppView = 
   | 'role_selection'
   | 'auth'
+  | 'admin_dashboard'
   // Farmer views
   | 'farmer_home'
   | 'farmer_products'
@@ -43,9 +46,13 @@ export interface UserAccount {
   id: string;
   fullName: string;
   contact: string;
+  email?: string;
+  password?: string;
   role: UserRole;
   language: string;
   fpoOrOrgName?: string;
+  location?: string;
+  approvalStatus?: ApprovalStatus;
   createdAt: string;
 }
 

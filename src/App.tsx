@@ -8,6 +8,7 @@ import {
   UserAccount 
 } from './types';
 import { Navbar } from './components/Navbar';
+import { LandingPage } from './components/LandingPage';
 import { RoleSelectionScreen } from './components/RoleSelectionScreen';
 import { RoleAuthPage } from './components/RoleAuthPage';
 import { FarmerDashboard } from './components/FarmerDashboard';
@@ -20,13 +21,14 @@ import { BulkBuyerHomeView } from './components/BulkBuyerHomeView';
 import { BulkBuyerDashboard } from './components/BulkBuyerDashboard';
 import { MarketIntelligence } from './components/MarketIntelligence';
 import { LogisticsPage } from './components/LogisticsPage';
+import { AdminDashboard } from './components/AdminDashboard';
 import { CartDrawer } from './components/CartDrawer';
 import { UserProfileModal } from './components/UserProfileModal';
 import { stopSpeech } from './utils/speech';
 
 export default function App() {
-  // Website opens directly at Role Selection screen. No navbar before authentication.
-  const [currentView, setCurrentView] = useState<AppView>('role_selection');
+  // Website opens at Landing Page with top Navbar
+  const [currentView, setCurrentView] = useState<AppView>('landing');
   const [selectedRoleForAuth, setSelectedRoleForAuth] = useState<UserRole>('farmer');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
@@ -42,15 +44,19 @@ export default function App() {
       const savedSession = localStorage.getItem('farm2door_user_session');
       if (savedSession) {
         const user: UserAccount = JSON.parse(savedSession);
+        
         setCurrentUser(user);
         if (user.language) {
           setLanguage(user.language);
         }
+
         // Direct to role home if logged in
         if (user.role === 'farmer') {
           setCurrentView('farmer_home');
         } else if (user.role === 'consumer') {
           setCurrentView('customer_home');
+        } else if (user.role === 'admin') {
+          setCurrentView('admin_dashboard');
         } else if (user.role === 'bulk_buyer') {
           setCurrentView('bulk_home');
         }
@@ -120,6 +126,8 @@ export default function App() {
       setCurrentView('farmer_home');
     } else if (account.role === 'consumer') {
       setCurrentView('customer_home');
+    } else if (account.role === 'admin') {
+      setCurrentView('admin_dashboard');
     } else if (account.role === 'bulk_buyer') {
       setCurrentView('bulk_home');
     }
@@ -243,9 +251,37 @@ export default function App() {
         )}
 
         {/* ========================================================================= */}
+        {/* ADMIN POST-LOGIN VIEWS                                                    */}
+        {/* ========================================================================= */}
+        {currentUser?.role === 'admin' && (currentView === 'admin_dashboard' || currentView === 'admin') && (
+          <AdminDashboard
+            currentUser={currentUser}
+            onLogout={handleLogout}
+          />
+        )}
+
+        {/* ========================================================================= */}
         {/* FARMER POST-LOGIN VIEWS                                                   */}
         {/* ========================================================================= */}
-        {currentUser?.role === 'farmer' && (
+        {currentUser?.role === 'farmer' && (currentUser.approvalStatus === 'pending' || currentUser.approvalStatus === 'rejected') && (
+          <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-3xl border border-amber-300 shadow-md text-center">
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center text-3xl mb-4">
+              ⏳
+            </div>
+            <h2 className="text-xl font-bold text-stone-900 mb-2">Farmer Account Awaiting Admin Approval</h2>
+            <p className="text-sm text-stone-600 mb-6">
+              Your farmer account is currently marked as <strong>{currentUser.approvalStatus}</strong>. You cannot access farmer features until verified and approved by the platform Administrator (naqi).
+            </p>
+            <button
+              onClick={handleLogout}
+              className="px-6 py-2.5 rounded-xl bg-stone-900 text-white font-bold text-xs cursor-pointer hover:bg-stone-800 transition-colors"
+            >
+              Sign Out & Return to Login
+            </button>
+          </div>
+        )}
+
+        {currentUser?.role === 'farmer' && currentUser.approvalStatus !== 'pending' && currentUser.approvalStatus !== 'rejected' && (
           <>
             {/* Farmer Home */}
             {(currentView === 'farmer_home' || currentView === 'farmer') && (

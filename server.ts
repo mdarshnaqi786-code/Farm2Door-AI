@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+import fs from 'fs';
 
 /**
  * NOTE FOR PRODUCTION DEPLOYMENTS:
@@ -235,6 +237,493 @@ function getFallbackAnswer(question: string, lang: string): string {
 
   return AGRICULTURAL_KNOWLEDGE.generalAdvice[validLang];
 }
+
+// ============================================================================
+// SERVER-SIDE AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC)
+// ============================================================================
+
+interface ServerUser {
+  id: string;
+  fullName: string;
+  email: string;
+  contact: string;
+  passwordHash: string;
+  passwordSalt: string;
+  role: 'farmer' | 'consumer' | 'admin' | 'bulk_buyer';
+  language?: string;
+  fpoOrOrgName?: string;
+  location?: string;
+  approvalStatus: 'approved' | 'pending' | 'rejected';
+  createdAt: string;
+}
+
+interface ActiveSession {
+  userId: string;
+  token: string;
+  role: string;
+  expiresAt: number;
+}
+
+// Cryptographic password hashing using PBKDF2 (SHA-512, 10,000 iterations)
+function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+  const usedSalt = salt || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, usedSalt, 10000, 64, 'sha512').toString('hex');
+  return { hash, salt: usedSalt };
+}
+
+function verifyPassword(password: string, hash: string, salt: string): boolean {
+  try {
+    const computed = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(hash));
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeUser(user: ServerUser) {
+  const { passwordHash, passwordSalt, ...safe } = user;
+  return safe;
+}
+
+// Server user persistence to local json file
+const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
+
+function loadUsers(): ServerUser[] {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = fs.readFileSync(USERS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Could not read existing users file, creating fresh data store:', err);
+  }
+  return [];
+}
+
+function saveUsers(usersList: ServerUser[]) {
+  try {
+    const dir = path.dirname(USERS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(USERS_FILE, JSON.stringify(usersList, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write users file:', err);
+  }
+}
+
+// Initialize server users
+let serverUsers: ServerUser[] = loadUsers();
+
+// Predefined default administrator account (Required by specification)
+const DEFAULT_ADMIN_EMAIL = 'mdarshnaqi786@gmail.com';
+const existingAdmin = serverUsers.find(
+  (u) => u.email?.toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase() || (u.role === 'admin' && u.fullName === 'naqi')
+);
+
+if (!existingAdmin) {
+  const { hash, salt } = hashPassword('123456');
+  const defaultAdmin: ServerUser = {
+    id: 'usr-admin-naqi',
+    fullName: 'naqi',
+    email: DEFAULT_ADMIN_EMAIL,
+    contact: DEFAULT_ADMIN_EMAIL,
+    passwordHash: hash,
+    passwordSalt: salt,
+    role: 'admin',
+    language: 'en',
+    approvalStatus: 'approved',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
+  serverUsers.unshift(defaultAdmin);
+  saveUsers(serverUsers);
+}
+
+// Initialize default seed farmers if none present
+if (!serverUsers.some((u) => u.role === 'farmer')) {
+  const rameshHash = hashPassword('123456');
+  const sureshHash = hashPassword('123456');
+  const ananyaHash = hashPassword('123456');
+  const priyaHash = hashPassword('123456');
+
+  serverUsers.push(
+    {
+      id: 'usr-farmer-ramesh',
+      fullName: 'Ramesh Patil',
+      contact: '+91 98765 43210',
+      email: 'ramesh.patil@kisan.in',
+      passwordHash: rameshHash.hash,
+      passwordSalt: rameshHash.salt,
+      role: 'farmer',
+      language: 'hi',
+      fpoOrOrgName: 'Sahyadri Kisan Producer Co.',
+      location: 'Nashik, Maharashtra',
+      approvalStatus: 'approved',
+      createdAt: '2026-03-01T08:30:00.000Z',
+    },
+    {
+      id: 'usr-farmer-suresh',
+      fullName: 'Suresh Kumar',
+      contact: '+91 91234 56789',
+      email: 'suresh.k@kisanmail.in',
+      passwordHash: sureshHash.hash,
+      passwordSalt: sureshHash.salt,
+      role: 'farmer',
+      language: 'te',
+      fpoOrOrgName: 'Krishna Valley Organic FPO',
+      location: 'Guntur, Andhra Pradesh',
+      approvalStatus: 'pending',
+      createdAt: '2026-09-08T10:15:00.000Z',
+    },
+    {
+      id: 'usr-farmer-ananya',
+      fullName: 'Ananya Reddy',
+      contact: '+91 99887 76655',
+      email: 'ananya.reddy@farmfresh.in',
+      passwordHash: ananyaHash.hash,
+      passwordSalt: ananyaHash.salt,
+      role: 'farmer',
+      language: 'te',
+      fpoOrOrgName: 'Rayalaseema Agro Producers',
+      location: 'Kurnool, Andhra Pradesh',
+      approvalStatus: 'pending',
+      createdAt: '2026-09-09T14:40:00.000Z',
+    },
+    {
+      id: 'usr-consumer-priya',
+      fullName: 'Priya Sharma',
+      contact: 'priya.sharma@example.com',
+      email: 'priya.sharma@example.com',
+      passwordHash: priyaHash.hash,
+      passwordSalt: priyaHash.salt,
+      role: 'consumer',
+      language: 'en',
+      approvalStatus: 'approved',
+      createdAt: '2026-03-05T12:00:00.000Z',
+    }
+  );
+  saveUsers(serverUsers);
+}
+
+// Active session token store
+const activeSessions = new Map<string, ActiveSession>();
+
+// Middleware: Authenticate Bearer Token
+function authenticateToken(req: any, res: any, next: any) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'unauthorized', message: 'Authentication required. Please log in.' });
+  }
+  const token = authHeader.substring(7);
+  const session = activeSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) {
+    if (session) activeSessions.delete(token);
+    return res.status(401).json({ error: 'invalid_token', message: 'Session expired. Please log in again.' });
+  }
+  const user = serverUsers.find((u) => u.id === session.userId);
+  if (!user) {
+    return res.status(401).json({ error: 'user_not_found', message: 'User account not found.' });
+  }
+  req.user = user;
+  req.token = token;
+  next();
+}
+
+// Middleware: Require Admin role on the server
+function requireAdmin(req: any, res: any, next: any) {
+  authenticateToken(req, res, () => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'Access denied. Administrative privileges are required for this action.',
+      });
+    }
+    next();
+  });
+}
+
+// ----------------------------------------------------------------------------
+// AUTH ROUTE: POST /api/auth/register
+// ----------------------------------------------------------------------------
+app.post('/api/auth/register', (req, res) => {
+  const { role, fullName, email, contact, password, farmLocation, fpoName, language } = req.body;
+
+  if (!fullName || (!email && !contact) || !password) {
+    return res.status(400).json({ error: 'missing_fields', message: 'Please fill in all required fields.' });
+  }
+
+  // Security Rule 1: Admin role CANNOT be created through public signup
+  if (role === 'admin') {
+    return res.status(403).json({
+      error: 'admin_signup_forbidden',
+      message: 'Admin accounts cannot be created through public registration.',
+    });
+  }
+
+  const rawIdentifier = (email || contact || '').trim().toLowerCase();
+
+  // Security Rule 2: Do not allow another user to register the predefined admin account
+  if (rawIdentifier === DEFAULT_ADMIN_EMAIL.toLowerCase()) {
+    return res.status(400).json({
+      error: 'reserved_email',
+      message: 'This email is reserved for the platform administrator.',
+    });
+  }
+
+  // Check if email/contact already registered
+  const existing = serverUsers.find(
+    (u) => u.email?.toLowerCase() === rawIdentifier || u.contact?.toLowerCase() === rawIdentifier
+  );
+  if (existing) {
+    return res.status(400).json({
+      error: 'user_exists',
+      message: 'An account with this email/mobile already exists. Please log in instead.',
+    });
+  }
+
+  // Hash password securely with PBKDF2 + salt
+  const { hash, salt } = hashPassword(password);
+  const targetRole = role === 'farmer' ? 'farmer' : 'consumer';
+  const approvalStatus = targetRole === 'farmer' ? 'pending' : 'approved';
+
+  const newUser: ServerUser = {
+    id: `usr-${targetRole}-${Date.now()}`,
+    fullName: fullName.trim(),
+    email: rawIdentifier,
+    contact: (contact || email || '').trim(),
+    passwordHash: hash,
+    passwordSalt: salt,
+    role: targetRole,
+    language: language || 'en',
+    location: farmLocation || '',
+    fpoOrOrgName: fpoName || '',
+    approvalStatus,
+    createdAt: new Date().toISOString(),
+  };
+
+  serverUsers.push(newUser);
+  saveUsers(serverUsers);
+
+  // If Farmer, account is created with status "Pending" and farmer cannot access features yet
+  if (approvalStatus === 'pending') {
+    return res.status(201).json({
+      success: true,
+      requiresApproval: true,
+      approvalStatus: 'pending',
+      message: 'Farmer account registered successfully. Your account is waiting for admin approval before you can access farmer features.',
+      user: sanitizeUser(newUser),
+    });
+  }
+
+  // Customer account is created and logged in normally
+  const token = crypto.randomBytes(32).toString('hex');
+  activeSessions.set(token, {
+    userId: newUser.id,
+    token,
+    role: newUser.role,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return res.status(201).json({
+    success: true,
+    token,
+    user: sanitizeUser(newUser),
+    message: 'Customer account registered successfully.',
+  });
+});
+
+// ----------------------------------------------------------------------------
+// AUTH ROUTE: POST /api/auth/login
+// ----------------------------------------------------------------------------
+app.post('/api/auth/login', (req, res) => {
+  const { role, emailOrContact, email, password } = req.body;
+  const inputIdentifier = (emailOrContact || email || '').trim().toLowerCase();
+
+  if (!inputIdentifier || !password) {
+    return res.status(400).json({ error: 'missing_fields', message: 'Email/Mobile and password are required.' });
+  }
+
+  // Find user by email or contact
+  const user = serverUsers.find(
+    (u) => u.email?.toLowerCase() === inputIdentifier || u.contact?.toLowerCase() === inputIdentifier
+  );
+
+  if (!user) {
+    return res.status(401).json({
+      error: 'invalid_credentials',
+      message: 'Invalid credentials. Please verify your email/mobile and password.',
+    });
+  }
+
+  // Verify password using timing-safe PBKDF2 comparison
+  const isValid = verifyPassword(password, user.passwordHash, user.passwordSalt);
+  if (!isValid) {
+    return res.status(401).json({
+      error: 'invalid_credentials',
+      message: 'Invalid credentials. Please verify your email/mobile and password.',
+    });
+  }
+
+  // Check role match (admin can log in from admin portal or general login)
+  if (role && role !== user.role && user.role !== 'admin') {
+    return res.status(403).json({
+      error: 'role_mismatch',
+      message: `This account is registered as a ${user.role}, not as a ${role}.`,
+    });
+  }
+
+  // Farmer Approval Verification Flow:
+  // If farmer has not been approved, show clear message and block protected functionality
+  if (user.role === 'farmer') {
+    if (user.approvalStatus === 'pending') {
+      return res.status(403).json({
+        error: 'pending_approval',
+        approvalStatus: 'pending',
+        message: 'Your farmer account is waiting for admin approval. You cannot access farmer features until approved.',
+        user: sanitizeUser(user),
+      });
+    }
+
+    if (user.approvalStatus === 'rejected') {
+      return res.status(403).json({
+        error: 'rejected',
+        approvalStatus: 'rejected',
+        message: 'Your farmer account application was rejected by the administrator. Protected farmer features are unavailable.',
+        user: sanitizeUser(user),
+      });
+    }
+  }
+
+  // Generate secure token session
+  const token = crypto.randomBytes(32).toString('hex');
+  activeSessions.set(token, {
+    userId: user.id,
+    token,
+    role: user.role,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return res.json({
+    success: true,
+    token,
+    user: sanitizeUser(user),
+    message: `Logged in successfully as ${user.role}.`,
+  });
+});
+
+// ----------------------------------------------------------------------------
+// AUTH ROUTE: GET /api/auth/me
+// ----------------------------------------------------------------------------
+app.get('/api/auth/me', authenticateToken, (req: any, res) => {
+  return res.json({
+    success: true,
+    user: sanitizeUser(req.user),
+  });
+});
+
+// ----------------------------------------------------------------------------
+// AUTH ROUTE: POST /api/auth/logout
+// ----------------------------------------------------------------------------
+app.post('/api/auth/logout', (req: any, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    activeSessions.delete(token);
+  }
+  return res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// ----------------------------------------------------------------------------
+// ADMIN ROUTE: GET /api/admin/farmers (Admin only)
+// ----------------------------------------------------------------------------
+app.get('/api/admin/farmers', requireAdmin, (req, res) => {
+  const farmers = serverUsers
+    .filter((u) => u.role === 'farmer')
+    .map((u) => sanitizeUser(u));
+
+  const stats = {
+    total: farmers.length,
+    pending: farmers.filter((f) => f.approvalStatus === 'pending').length,
+    approved: farmers.filter((f) => f.approvalStatus === 'approved').length,
+    rejected: farmers.filter((f) => f.approvalStatus === 'rejected').length,
+  };
+
+  return res.json({
+    success: true,
+    farmers,
+    stats,
+  });
+});
+
+// ----------------------------------------------------------------------------
+// ADMIN ROUTE: POST /api/admin/farmers/:id/status (Admin only)
+// ----------------------------------------------------------------------------
+app.post('/api/admin/farmers/:id/status', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['approved', 'rejected', 'pending'].includes(status)) {
+    return res.status(400).json({
+      error: 'invalid_status',
+      message: 'Status must be approved, rejected, or pending.',
+    });
+  }
+
+  const farmer = serverUsers.find((u) => u.id === id && u.role === 'farmer');
+  if (!farmer) {
+    return res.status(404).json({ error: 'not_found', message: 'Farmer not found.' });
+  }
+
+  farmer.approvalStatus = status;
+  saveUsers(serverUsers);
+
+  return res.json({
+    success: true,
+    message: `Farmer ${farmer.fullName} status updated to ${status}.`,
+    farmer: sanitizeUser(farmer),
+  });
+});
+
+// ----------------------------------------------------------------------------
+// ADMIN ROUTE: POST /api/admin/change-password (Admin only)
+// ----------------------------------------------------------------------------
+app.post('/api/admin/change-password', requireAdmin, (req: any, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'missing_fields', message: 'Current and new password are required.' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'weak_password', message: 'New password must be at least 6 characters.' });
+  }
+
+  const adminUser = serverUsers.find((u) => u.id === req.user.id);
+  if (!adminUser) {
+    return res.status(404).json({ error: 'user_not_found', message: 'Admin user not found.' });
+  }
+
+  const isValid = verifyPassword(currentPassword, adminUser.passwordHash, adminUser.passwordSalt);
+  if (!isValid) {
+    return res.status(401).json({ error: 'wrong_password', message: 'Current password is incorrect.' });
+  }
+
+  const { hash, salt } = hashPassword(newPassword);
+  adminUser.passwordHash = hash;
+  adminUser.passwordSalt = salt;
+  saveUsers(serverUsers);
+
+  return res.json({
+    success: true,
+    message: 'Admin password updated securely.',
+  });
+});
+
+// ----------------------------------------------------------------------------
+// ADMIN ROUTE: GET /api/admin/users (Admin only)
+// ----------------------------------------------------------------------------
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const users = serverUsers.map((u) => sanitizeUser(u));
+  return res.json({ success: true, users });
+});
 
 // Health Check API Endpoint
 app.get('/api/health', (req, res) => {
