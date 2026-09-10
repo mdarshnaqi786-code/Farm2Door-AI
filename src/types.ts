@@ -107,6 +107,7 @@ export interface FarmerProduct {
   category: ProductCategory;
   pricePerUnit: number;
   pricePerKg: number; // for compatibility with legacy cart
+  mandiRate?: number; // APMC Mandi reference market price (separate from direct farmer price)
   unit: QuantityUnit | string;
   availableQty: number;
   availableKg: number; // for compatibility with legacy cart
