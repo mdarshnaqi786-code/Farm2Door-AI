@@ -25,10 +25,12 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { CartDrawer } from './components/CartDrawer';
 import { UserProfileModal } from './components/UserProfileModal';
 import { stopSpeech } from './utils/speech';
+import { safeStorage } from './utils/safeStorage';
 
 export default function App() {
+  console.log('[BOOT] App component function running');
   // Website opens at Landing Page with top Navbar
-  const [currentView, setCurrentView] = useState<AppView>('landing');
+  const [currentView, setCurrentView] = useState<AppView>('role_selection');
   const [selectedRoleForAuth, setSelectedRoleForAuth] = useState<UserRole>('farmer');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
@@ -38,10 +40,10 @@ export default function App() {
   // Active User session
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
-  // Initialize session from LocalStorage
+  // Initialize session from safeStorage
   useEffect(() => {
     try {
-      const savedSession = localStorage.getItem('farm2door_user_session');
+      const savedSession = safeStorage.getItem('farm2door_user_session');
       if (savedSession) {
         const user: UserAccount = JSON.parse(savedSession);
         
@@ -62,7 +64,7 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.warn('Failed to load user session from local storage:', e);
+      console.warn('Failed to load user session from storage:', e);
     }
   }, []);
 
@@ -77,12 +79,15 @@ export default function App() {
         farmerName: 'Ramesh Patil',
         fpoName: 'Sahyadri Kisan Producer Co.',
         location: 'Nashik, Maharashtra',
+        category: 'Vegetables',
         grade: 'Grade A',
         pricePerKg: 34,
+        pricePerUnit: 34,
         farmerShare: 27,
         logisticsShare: 4.5,
         platformShare: 2.5,
         availableKg: 850,
+        availableQty: 850,
         harvestDate: 'Harvested Today at 5:00 AM',
         image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80',
         description: 'Naturally vine-ripened, firm and juicy red tomatoes. Plucked fresh this morning with zero chemical ripening.',
@@ -138,7 +143,7 @@ export default function App() {
   const handleLogout = () => {
     handleStopSpeech();
     try {
-      localStorage.removeItem('farm2door_user_session');
+      safeStorage.removeItem('farm2door_user_session');
     } catch (e) {
       console.warn('Failed to remove session:', e);
     }
@@ -183,17 +188,17 @@ export default function App() {
   };
 
   // Check whether top navigation bar should be visible:
-  // MUST NOT be visible during role selection, login, or sign-up, or before authentication!
-  const isPreLogin =
-    !currentUser ||
-    currentView === 'role_selection' ||
-    currentView === 'auth';
+  // Hide during standalone role selection screen or auth screen
+  const isAuthFlow = currentView === 'role_selection' || currentView === 'auth';
+
+  console.log('[BOOT] App rendering view:', currentView, 'currentUser:', currentUser ? currentUser.role : 'none');
+  console.log('[BOOT] App returning JSX layout');
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
+    <div id="app-root-wrapper" className="min-h-screen min-h-[100dvh] w-full bg-stone-50 text-stone-900 flex flex-col font-sans">
       
-      {/* Top Navigation Bar: ONLY shown after successful authentication */}
-      {!isPreLogin && currentUser && (
+      {/* Top Navigation Bar: Shown on Landing and authenticated pages; hidden during standalone role selection / auth */}
+      {!isAuthFlow && (
         <Navbar
           currentView={currentView}
           onNavigate={(view) => {
@@ -208,7 +213,7 @@ export default function App() {
             if (currentUser) {
               const updated = { ...currentUser, language: newLang };
               setCurrentUser(updated);
-              localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+              safeStorage.setItem('farm2door_user_session', JSON.stringify(updated));
             }
           }}
           cartCount={cart.reduce((s, i) => s + i.quantityKg, 0)}
@@ -224,8 +229,87 @@ export default function App() {
       )}
 
       {/* Main View Flow */}
-      <main className="flex-1">
+      <main id="app-main-content" className="flex-1 flex flex-col">
         
+        {/* LANDING PAGE (Hero & 3 Interactive Role Cards) */}
+        {currentView === 'landing' && (
+          <LandingPage
+            onSelectRole={(role) => {
+              handleStopSpeech();
+              if (role === 'farmer' || role === 'consumer' || role === 'bulk_buyer' || role === 'admin') {
+                setSelectedRoleForAuth(role as UserRole);
+                setCurrentView('auth');
+              } else {
+                setCurrentView('role_selection');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            language={language}
+            onStartSpeech={handleStartSpeech}
+            onEndSpeech={handleEndSpeech}
+          />
+        )}
+
+        {/* GUEST EXPLORE: PUBLIC MARKETPLACE */}
+        {!currentUser && (currentView === 'customer_marketplace' || currentView === 'consumer') && (
+          <ConsumerMarketplace
+            cart={cart}
+            currentUser={null}
+            onAddToCart={handleAddToCart}
+            onOpenCart={() => setIsCartOpen(true)}
+          />
+        )}
+
+        {/* GUEST EXPLORE: PUBLIC MARKET INTEL */}
+        {!currentUser && (currentView === 'farmer_market_intel' || currentView === 'market_intel') && (
+          <MarketIntelligence
+            language={language}
+            onStartSpeech={handleStartSpeech}
+            onEndSpeech={handleEndSpeech}
+          />
+        )}
+
+        {/* GUEST EXPLORE: VOICE AI ASSISTANT */}
+        {!currentUser && currentView === 'farmer_voice_hub' && (
+          <FarmerDashboard
+            language={language}
+            onLanguageChange={(newLang) => setLanguage(newLang)}
+            onStartSpeech={handleStartSpeech}
+            onEndSpeech={handleEndSpeech}
+            onNavigateToMarketIntel={() => {
+              handleStopSpeech();
+              setCurrentView('farmer_market_intel');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToProducts={() => {
+              handleStopSpeech();
+              setCurrentView('role_selection');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToOrders={() => {
+              handleStopSpeech();
+              setCurrentView('role_selection');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToLogistics={() => {
+              handleStopSpeech();
+              setCurrentView('farmer_logistics');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToMarketplace={() => {
+              handleStopSpeech();
+              setCurrentView('customer_marketplace');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToHome={() => {
+              handleStopSpeech();
+              setCurrentView('landing');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            activeSection="voice_hub"
+          />
+        )}
+
         {/* FIRST SCREEN: ROLE SELECTION (No top nav, clean welcome screen) */}
         {currentView === 'role_selection' && (
           <RoleSelectionScreen
@@ -292,7 +376,7 @@ export default function App() {
                   if (currentUser) {
                     const updated = { ...currentUser, language: newLang };
                     setCurrentUser(updated);
-                    localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+                    safeStorage.setItem('farm2door_user_session', JSON.stringify(updated));
                   }
                 }}
                 onStartSpeech={handleStartSpeech}
@@ -360,7 +444,7 @@ export default function App() {
                   if (currentUser) {
                     const updated = { ...currentUser, language: newLang };
                     setCurrentUser(updated);
-                    localStorage.setItem('farm2door_user_session', JSON.stringify(updated));
+                    safeStorage.setItem('farm2door_user_session', JSON.stringify(updated));
                   }
                 }}
                 onStartSpeech={handleStartSpeech}

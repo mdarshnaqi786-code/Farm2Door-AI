@@ -3,37 +3,36 @@ import { LanguageCode } from '../types';
 // Speech synthesis helper
 let currentUtterance: SpeechSynthesisUtterance | null = null;
 let cachedVoices: SpeechSynthesisVoice[] = [];
-let hasLoggedVoices = false;
 
-const logVoicesOnce = (voices: SpeechSynthesisVoice[]) => {
-  if (!hasLoggedVoices && voices.length > 0) {
-    hasLoggedVoices = true;
-    console.log(
-      'Available SpeechSynthesis voices on this system:',
-      voices.map((v) => `${v.name} (${v.lang})`)
-    );
+// Safe voice registration without crashing restricted iframes
+try {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      try {
+        cachedVoices = window.speechSynthesis.getVoices() || [];
+      } catch {
+        cachedVoices = [];
+      }
+    };
   }
-};
-
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  cachedVoices = window.speechSynthesis.getVoices();
-  logVoicesOnce(cachedVoices);
-  window.speechSynthesis.onvoiceschanged = () => {
-    cachedVoices = window.speechSynthesis.getVoices();
-    logVoicesOnce(cachedVoices);
-  };
+} catch {
+  // Speech synthesis is blocked or restricted in this environment
 }
 
 export const getAvailableVoices = (): SpeechSynthesisVoice[] => {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    if (cachedVoices.length === 0) {
-      cachedVoices = window.speechSynthesis.getVoices();
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+      if (cachedVoices.length === 0) {
+        cachedVoices = window.speechSynthesis.getVoices() || [];
+      }
+      return cachedVoices;
     }
-    logVoicesOnce(cachedVoices);
-    return cachedVoices;
+  } catch (err) {
+    console.warn('Could not retrieve speech synthesis voices:', err);
   }
   return [];
 };
+
 
 export const speakText = (
   text: string,

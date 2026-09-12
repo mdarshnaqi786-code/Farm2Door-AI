@@ -869,7 +869,10 @@ Keep the answer concise (2 to 3 sentences, 35-50 words) so it is natural and cle
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

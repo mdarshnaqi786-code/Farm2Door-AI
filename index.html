@@ -15,6 +15,15 @@
   </head>
   <body class="bg-stone-50 text-stone-900 antialiased font-sans selection:bg-emerald-200 selection:text-emerald-900">
     <div id="root"></div>
+    <script>
+      console.log('[BOOT] index.html loaded, preparing to execute main.tsx');
+      window.addEventListener('error', function(e) {
+        console.error('[BOOT] Window error:', e.message, 'at', e.filename, 'line', e.lineno, e.error);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('[BOOT] Window unhandled rejection:', e.reason);
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

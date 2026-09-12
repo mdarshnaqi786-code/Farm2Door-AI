@@ -1142,17 +1142,17 @@ export const KisanVoiceAssistant: React.FC<KisanVoiceAssistantProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {EXAMPLE_QUESTIONS.map((ex) => {
-            const questionText = ex[voiceInputLang] || ex[language] || ex.en;
+          {EXAMPLE_QUESTIONS.filter(Boolean).map((ex) => {
+            const questionText = ex?.[voiceInputLang] || ex?.[language] || ex?.en || '';
             return (
               <button
-                key={ex.id}
-                id={`demo-question-${ex.id}`}
-                onClick={() => handleExampleClick(ex)}
+                key={ex?.id || Math.random().toString()}
+                id={`demo-question-${ex?.id || 'default'}`}
+                onClick={() => ex && handleExampleClick(ex)}
                 className="p-3.5 rounded-xl bg-white hover:bg-emerald-50 border-2 border-stone-200 hover:border-emerald-500 text-left transition-all duration-150 cursor-pointer shadow-xs flex items-start gap-2.5 group active:scale-98"
               >
                 <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">
-                  {ex.icon}
+                  {ex?.icon || '💡'}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs sm:text-sm font-bold text-stone-900 group-hover:text-emerald-950 leading-snug">

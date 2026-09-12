@@ -751,7 +751,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
               {farmerStock.map((item) => (
                 <div key={item.id} className="bg-stone-50 p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl">{item.icon}</span>
+                    <span className="text-3xl">{item?.icon || '🌱'}</span>
                     <div>
                       <div className="font-extrabold text-stone-900 text-base">
                         {language === 'te' ? item.te : item.name}

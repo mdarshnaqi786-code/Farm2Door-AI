@@ -155,10 +155,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           icon: '🏢', 
           bg: 'bg-teal-100 text-teal-900 border-teal-300' 
         };
+      default:
+        return {
+          label: currentUser?.role || 'Member',
+          icon: '👤',
+          bg: 'bg-stone-100 text-stone-800 border-stone-200',
+        };
     }
   };
 
-  const roleBadge = getRoleBadge();
+  const roleBadge = getRoleBadge() || {
+    label: 'Direct Marketplace',
+    icon: '🌿',
+    bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  };
 
   // Speak language name aloud in language modal
   const handleSpeakLanguage = (e: React.MouseEvent, lang: SupportedLanguage) => {
@@ -193,16 +203,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Active Role Tag */}
               <div className="hidden sm:flex items-center gap-1.5 ml-2">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-1 ${roleBadge.bg}`}>
-                  <span>{roleBadge.icon}</span>
-                  <span>{roleBadge.label}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-1 ${roleBadge?.bg || 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                  <span>{roleBadge?.icon || '🌿'}</span>
+                  <span>{roleBadge?.label || 'Direct Marketplace'}</span>
                 </span>
               </div>
             </div>
 
             {/* Middle: Role-Specific Navigation Links (Desktop) */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-              {navLinks.map((item) => {
+              {navLinks.filter(Boolean).map((item) => {
+                if (!item || !item.icon) return null;
                 const Icon = item.icon;
                 const active = isLinkActive(item.id);
                 return (
@@ -338,13 +349,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isMobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-stone-200 space-y-2 animate-fade-in">
               <div className="px-2 py-1 mb-2">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${roleBadge.bg}`}>
-                  <span>{roleBadge.icon}</span>
-                  <span>{currentUser ? `${currentUser.fullName} (${roleBadge.label})` : 'Farm2Door Direct Marketplace'}</span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${roleBadge?.bg || 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                  <span>{roleBadge?.icon || '🌿'}</span>
+                  <span>{currentUser ? `${currentUser.fullName} (${roleBadge?.label || ''})` : 'Farm2Door Direct Marketplace'}</span>
                 </span>
               </div>
 
-              {navLinks.map((item) => {
+              {navLinks.filter(Boolean).map((item) => {
+                if (!item || !item.icon) return null;
                 const Icon = item.icon;
                 const active = isLinkActive(item.id);
                 return (

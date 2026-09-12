@@ -1,4 +1,5 @@
 import { UserAccount, UserRole, ApprovalStatus } from '../types';
+import { safeStorage } from '../utils/safeStorage';
 
 export const DEFAULT_ADMIN: UserAccount = {
   id: 'usr-admin-naqi',
@@ -70,14 +71,13 @@ const STORAGE_USERS_KEY = 'farm2door_registered_users';
 const STORAGE_SESSION_KEY = 'farm2door_user_session';
 
 /**
- * Retrieves all registered users from localStorage, initializing with seed users if not present.
+ * Retrieves all registered users from storage, initializing with seed users if not present.
  */
 export const getRegisteredUsers = (): UserAccount[] => {
-  if (typeof window === 'undefined') return SEED_USERS;
   try {
-    const raw = localStorage.getItem(STORAGE_USERS_KEY);
+    const raw = safeStorage.getItem(STORAGE_USERS_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(SEED_USERS));
+      safeStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(SEED_USERS));
       return SEED_USERS;
     }
     const parsed: UserAccount[] = JSON.parse(raw);
@@ -88,7 +88,7 @@ export const getRegisteredUsers = (): UserAccount[] => {
     );
     if (!hasAdmin) {
       parsed.unshift(DEFAULT_ADMIN);
-      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(parsed));
+      safeStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(parsed));
     }
     return parsed;
   } catch (err) {
@@ -98,12 +98,11 @@ export const getRegisteredUsers = (): UserAccount[] => {
 };
 
 /**
- * Saves users list to localStorage.
+ * Saves users list to storage.
  */
 export const saveRegisteredUsers = (users: UserAccount[]): void => {
-  if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    safeStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
   } catch (err) {
     console.error('Failed to save registered users:', err);
   }
@@ -113,9 +112,8 @@ export const saveRegisteredUsers = (users: UserAccount[]): void => {
  * Gets currently logged in user session.
  */
 export const getCurrentUserSession = (): UserAccount | null => {
-  if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(STORAGE_SESSION_KEY);
+    const raw = safeStorage.getItem(STORAGE_SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -123,18 +121,17 @@ export const getCurrentUserSession = (): UserAccount | null => {
 };
 
 /**
- * Sets or clears the current user session in localStorage.
+ * Sets or clears the current user session in storage.
  */
 export const setCurrentUserSession = (account: UserAccount | null): void => {
-  if (typeof window === 'undefined') return;
   try {
     if (account) {
-      localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(account));
+      safeStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(account));
       if (account.language) {
-        localStorage.setItem('farm2door_preferred_language', account.language);
+        safeStorage.setItem('farm2door_preferred_language', account.language);
       }
     } else {
-      localStorage.removeItem(STORAGE_SESSION_KEY);
+      safeStorage.removeItem(STORAGE_SESSION_KEY);
     }
   } catch (err) {
     console.warn('Failed to update session:', err);
@@ -402,7 +399,7 @@ export const changeAdminPassword = async (
 
   // Call server-side API if available
   try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('farm2door_auth_token') : null;
+    const token = safeStorage.getItem('farm2door_auth_token');
     if (token) {
       const resp = await fetch('/api/admin/change-password', {
         method: 'POST',

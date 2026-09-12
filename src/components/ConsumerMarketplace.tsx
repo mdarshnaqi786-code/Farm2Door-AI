@@ -150,7 +150,7 @@ export const ConsumerMarketplace: React.FC<ConsumerMarketplaceProps> = ({
       // 6. Bulk filter
       if (bulkOnly) {
         const isBulkUnit = product.unit === 'quintal' || product.unit === 'ton';
-        const hasBulkQty = (product.availableQuantity || 0) >= 300 || (product.availableKg || 0) >= 300;
+        const hasBulkQty = (product.availableQty || 0) >= 300 || (product.availableKg || 0) >= 300;
         if (!isBulkUnit && !hasBulkQty) return false;
       }
 

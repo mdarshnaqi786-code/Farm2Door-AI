@@ -38,7 +38,7 @@ export const FarmerOrdersManager: React.FC<FarmerOrdersManagerProps> = ({
   farmerName,
   currentUser,
 }) => {
-  const effectiveFarmerName = farmerName || currentUser?.name || 'Farmer';
+  const effectiveFarmerName = farmerName || currentUser?.fullName || 'Farmer';
   const [activeTab, setActiveTab] = useState<'customer_orders' | 'bulk_requests' | 'enquiries'>('customer_orders');
   
   const [customerOrders, setCustomerOrders] = useState<CustomerOrder[]>([]);

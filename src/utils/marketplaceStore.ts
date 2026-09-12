@@ -7,6 +7,17 @@ import {
   QuantityUnit, 
   OrderStatus 
 } from '../types';
+import { safeStorage } from './safeStorage';
+
+const safeDispatchEvent = (name: string) => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event(name));
+    }
+  } catch {
+    // Ignore if events restricted in iframe
+  }
+};
 
 const PRODUCTS_KEY = 'farm2door_marketplace_products';
 const ORDERS_KEY = 'farm2door_customer_orders';
@@ -392,14 +403,14 @@ const INITIAL_DEMO_ENQUIRIES: FarmerEnquiry[] = [
 
 export function getMarketplaceProducts(): FarmerProduct[] {
   try {
-    const raw = localStorage.getItem(PRODUCTS_KEY);
+    const raw = safeStorage.getItem(PRODUCTS_KEY);
     if (!raw) {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));
+      safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));
       return INITIAL_DEMO_PRODUCTS;
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));
+      safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));
       return INITIAL_DEMO_PRODUCTS;
     }
     return parsed;
@@ -445,8 +456,8 @@ export function saveProduct(productData: Omit<FarmerProduct, 'id'> & { id?: stri
     products.unshift(newProduct);
   }
 
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  window.dispatchEvent(new Event('farm2door_products_updated'));
+  safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  safeDispatchEvent('farm2door_products_updated');
   return newProduct;
 }
 
@@ -464,8 +475,8 @@ export function updateProduct(id: string, updates: Partial<FarmerProduct>): Farm
   };
 
   products[index] = updatedProduct;
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  window.dispatchEvent(new Event('farm2door_products_updated'));
+  safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  safeDispatchEvent('farm2door_products_updated');
   return updatedProduct;
 }
 
@@ -474,8 +485,8 @@ export function deleteProduct(id: string): boolean {
   const filtered = products.filter((p) => p.id !== id);
   if (filtered.length === products.length) return false;
 
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(filtered));
-  window.dispatchEvent(new Event('farm2door_products_updated'));
+  safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(filtered));
+  safeDispatchEvent('farm2door_products_updated');
   return true;
 }
 
@@ -485,9 +496,9 @@ export function deleteProduct(id: string): boolean {
 
 export function getCustomerOrders(): CustomerOrder[] {
   try {
-    const raw = localStorage.getItem(ORDERS_KEY);
+    const raw = safeStorage.getItem(ORDERS_KEY);
     if (!raw) {
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(INITIAL_DEMO_ORDERS));
+      safeStorage.setItem(ORDERS_KEY, JSON.stringify(INITIAL_DEMO_ORDERS));
       return INITIAL_DEMO_ORDERS;
     }
     const parsed = JSON.parse(raw);
@@ -513,7 +524,7 @@ export function createCustomerOrder(orderData: Omit<CustomerOrder, 'id' | 'times
   };
 
   orders.unshift(newOrder);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+  safeStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
 
   // Also reduce available quantities of ordered products in marketplace
   try {
@@ -525,13 +536,13 @@ export function createCustomerOrder(orderData: Omit<CustomerOrder, 'id' | 'times
         match.availableKg = match.availableQty;
       }
     });
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+    safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   } catch (e) {
     console.warn('Failed to deduct product stock on order:', e);
   }
 
-  window.dispatchEvent(new Event('farm2door_orders_updated'));
-  window.dispatchEvent(new Event('farm2door_products_updated'));
+  safeDispatchEvent('farm2door_orders_updated');
+  safeDispatchEvent('farm2door_products_updated');
   return newOrder;
 }
 
@@ -541,8 +552,8 @@ export function updateOrderStatus(orderId: string, status: OrderStatus): boolean
   if (!target) return false;
 
   target.status = status;
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event('farm2door_orders_updated'));
+  safeStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+  safeDispatchEvent('farm2door_orders_updated');
   return true;
 }
 
@@ -552,9 +563,9 @@ export function updateOrderStatus(orderId: string, status: OrderStatus): boolean
 
 export function getBulkQuotes(): BulkQuoteRequest[] {
   try {
-    const raw = localStorage.getItem(BULK_QUOTES_KEY);
+    const raw = safeStorage.getItem(BULK_QUOTES_KEY);
     if (!raw) {
-      localStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(INITIAL_DEMO_BULK_QUOTES));
+      safeStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(INITIAL_DEMO_BULK_QUOTES));
       return INITIAL_DEMO_BULK_QUOTES;
     }
     const parsed = JSON.parse(raw);
@@ -579,8 +590,8 @@ export function createBulkQuote(quoteData: Omit<BulkQuoteRequest, 'id' | 'timest
   };
 
   quotes.unshift(newQuote);
-  localStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(quotes));
-  window.dispatchEvent(new Event('farm2door_bulk_quotes_updated'));
+  safeStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(quotes));
+  safeDispatchEvent('farm2door_bulk_quotes_updated');
   return newQuote;
 }
 
@@ -590,8 +601,8 @@ export function updateBulkQuoteStatus(quoteId: string, status: OrderStatus): boo
   if (!target) return false;
 
   target.status = status;
-  localStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(quotes));
-  window.dispatchEvent(new Event('farm2door_bulk_quotes_updated'));
+  safeStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(quotes));
+  safeDispatchEvent('farm2door_bulk_quotes_updated');
   return true;
 }
 
@@ -601,9 +612,9 @@ export function updateBulkQuoteStatus(quoteId: string, status: OrderStatus): boo
 
 export function getFarmerEnquiries(): FarmerEnquiry[] {
   try {
-    const raw = localStorage.getItem(ENQUIRIES_KEY);
+    const raw = safeStorage.getItem(ENQUIRIES_KEY);
     if (!raw) {
-      localStorage.setItem(ENQUIRIES_KEY, JSON.stringify(INITIAL_DEMO_ENQUIRIES));
+      safeStorage.setItem(ENQUIRIES_KEY, JSON.stringify(INITIAL_DEMO_ENQUIRIES));
       return INITIAL_DEMO_ENQUIRIES;
     }
     const parsed = JSON.parse(raw);
@@ -628,8 +639,8 @@ export function createFarmerEnquiry(enquiryData: Omit<FarmerEnquiry, 'id' | 'tim
   };
 
   enquiries.unshift(newEnquiry);
-  localStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
-  window.dispatchEvent(new Event('farm2door_enquiries_updated'));
+  safeStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
+  safeDispatchEvent('farm2door_enquiries_updated');
   return newEnquiry;
 }
 
@@ -640,7 +651,7 @@ export function replyToEnquiry(enquiryId: string, replyMessage: string): boolean
 
   target.replied = true;
   target.replyMessage = replyMessage;
-  localStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
-  window.dispatchEvent(new Event('farm2door_enquiries_updated'));
+  safeStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
+  safeDispatchEvent('farm2door_enquiries_updated');
   return true;
 }

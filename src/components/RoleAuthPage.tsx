@@ -94,7 +94,7 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
   }, [activeRole]);
 
   // Role metadata
-  const roleConfig = {
+  const roleConfigs: Record<string, any> = {
     farmer: {
       title: 'Farmer / FPO',
       subtitle: 'किसान / రైతు / உழவர் लॉगिन',
@@ -147,7 +147,21 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
       demoLocation: 'Vijayawada, Andhra Pradesh',
       voicePrompt: 'Bulk buyer portal. Procure agricultural commodities by the quintal or metric ton directly from verified farmers.',
     },
-  }[activeRole];
+  };
+
+  const roleConfig = roleConfigs[activeRole] || {
+    title: 'User',
+    subtitle: 'Sign in to Farm2Door AI',
+    icon: '👤',
+    badgeBg: 'bg-stone-100 text-stone-900 border-stone-300',
+    btnBg: 'bg-stone-900 hover:bg-stone-800 text-white',
+    accentColor: 'stone',
+    demoName: 'User',
+    demoContact: 'user@farm2door.in',
+    demoFPO: '',
+    demoLocation: 'India',
+    voicePrompt: 'Farm2Door authentication portal. Sign up or log in to continue.',
+  };
 
   // Hear page instructions aloud
   const handleSpeakPageInstructions = () => {
@@ -477,17 +491,17 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-stone-100 gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center text-3xl shadow-inner shrink-0">
-                  <span>{roleConfig.icon}</span>
+                  <span>{roleConfig?.icon || '👤'}</span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${roleConfig.badgeBg}`}>
-                      {roleConfig.title}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${roleConfig?.badgeBg || ''}`}>
+                      {roleConfig?.title || 'User'}
                     </span>
-                    <span className="text-xs text-stone-500 font-semibold">{roleConfig.subtitle}</span>
+                    <span className="text-xs text-stone-500 font-semibold">{roleConfig?.subtitle || ''}</span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-stone-900 font-display mt-1">
-                    {authMode === 'login' ? `${roleConfig.title} Login` : `${roleConfig.title} Sign Up`}
+                    {authMode === 'login' ? `${roleConfig?.title || 'User'} Login` : `${roleConfig?.title || 'User'} Sign Up`}
                   </h1>
                 </div>
               </div>

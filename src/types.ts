@@ -3,6 +3,7 @@ export type UserRole = 'farmer' | 'consumer' | 'admin' | 'bulk_buyer';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export type AppView = 
+  | 'landing'
   | 'role_selection'
   | 'auth'
   | 'admin_dashboard'
@@ -10,6 +11,7 @@ export type AppView =
   | 'farmer_home'
   | 'farmer_products'
   | 'farmer_orders'
+  | 'farmer_marketplace'
   | 'farmer_voice_hub'
   | 'farmer_market_intel'
   | 'farmer_logistics'
@@ -27,6 +29,7 @@ export type AppView =
   | 'farmer' 
   | 'consumer' 
   | 'bulk_buyer' 
+  | 'admin'
   | 'market_intel' 
   | 'logistics';
 

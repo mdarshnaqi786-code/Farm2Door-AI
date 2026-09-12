@@ -39,7 +39,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-4.5rem)] flex flex-col justify-between">
+    <div className="w-full flex-1 flex flex-col justify-between">
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 w-full">
         
@@ -243,6 +243,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="font-bold text-stone-900 text-sm">Smart Route Logistics</div>
             <div className="text-xs text-stone-500 mt-0.5">Cold chain & 24% distance saved</div>
           </div>
+        </div>
+
+        {/* Administrator Access */}
+        <div className="mt-8 text-center">
+          <button
+            id="landing-admin-btn"
+            onClick={() => onSelectRole('admin')}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-stone-500 hover:text-purple-800 bg-white hover:bg-purple-50 px-4 py-2 rounded-xl border border-stone-200 hover:border-purple-300 transition-all cursor-pointer shadow-2xs"
+          >
+            <ShieldCheck className="w-4 h-4 text-purple-700" />
+            <span>Administrator Portal (Approvals & Management) &rarr;</span>
+          </button>
         </div>
 
       </div>

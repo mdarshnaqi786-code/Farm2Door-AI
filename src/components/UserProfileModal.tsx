@@ -33,14 +33,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const currentLangObj =
     INDIAN_LANGUAGES.find((l) => l.code === user.language) || INDIAN_LANGUAGES[0];
 
-  const roleDetails = {
+  const roleConfigs: Record<string, {
+    roleTitle: string;
+    icon: React.ReactNode;
+    badgeBg: string;
+    orgLabel: string;
+    orgVal: string;
+    location: string;
+    highlight: string;
+  }> = {
     farmer: {
       roleTitle: 'Farmer / FPO Member',
       icon: <Wheat className="w-6 h-6 text-emerald-700" />,
       badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
       orgLabel: 'FPO Collective',
       orgVal: user.fpoOrOrgName || 'Sahyadri Kisan Producer Co.',
-      location: 'Nashik Agro-Cluster, Maharashtra',
+      location: user.location || 'Nashik Agro-Cluster, Maharashtra',
       highlight: 'Direct Farm-Gate Payout: 78%+ straight to your bank account with zero middleman commissions.',
     },
     consumer: {
@@ -48,9 +56,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       icon: <ShoppingBag className="w-6 h-6 text-amber-700" />,
       badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
       orgLabel: 'Preferred Delivery Hub',
-      orgVal: 'Indiranagar Urban Node, Bengaluru',
-      location: 'Karnataka, 560038',
+      orgVal: user.fpoOrOrgName || 'Indiranagar Urban Node, Bengaluru',
+      location: user.location || 'Karnataka, 560038',
       highlight: '100% farm-traceable produce harvested daily with cold-chain electric delivery.',
+    },
+    admin: {
+      roleTitle: 'Platform Administrator',
+      icon: <ShieldCheck className="w-6 h-6 text-purple-700" />,
+      badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
+      orgLabel: 'Administration Scope',
+      orgVal: user.fpoOrOrgName || 'Farm2Door AI System Operations',
+      location: user.location || 'Central Operations Hub',
+      highlight: 'Full administrative access for user governance, farmer registration approvals, and audit logs.',
     },
     bulk_buyer: {
       roleTitle: 'Institutional Bulk Buyer',
@@ -58,10 +75,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       badgeBg: 'bg-teal-100 text-teal-900 border-teal-300',
       orgLabel: 'Company / Enterprise',
       orgVal: user.fpoOrOrgName || 'Rajan Fresh Foods Ltd.',
-      location: 'Bengaluru Metro Agro-Warehouse Hub',
+      location: user.location || 'Bengaluru Metro Agro-Warehouse Hub',
       highlight: 'Direct procurement contracts with verified FPOs at competitive wholesale rates.',
     },
-  }[user.role];
+  };
+
+  const roleDetails = roleConfigs[user.role] || {
+    roleTitle: user.role || 'Member',
+    icon: <User className="w-6 h-6 text-stone-700" />,
+    badgeBg: 'bg-stone-100 text-stone-900 border-stone-300',
+    orgLabel: 'Organization',
+    orgVal: user.fpoOrOrgName || 'Farm2Door AI Community',
+    location: user.location || 'India',
+    highlight: 'Direct connectivity between verified farmers and consumers across India.',
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fade-in">
@@ -82,12 +109,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* User Header */}
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 flex items-center justify-center shadow-inner shrink-0 text-3xl">
-            {roleDetails.icon}
+            {roleDetails?.icon || null}
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${roleDetails.badgeBg}`}>
-                {roleDetails.roleTitle}
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${roleDetails?.badgeBg || ''}`}>
+                {roleDetails?.roleTitle || 'User'}
               </span>
               <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                 <ShieldCheck className="w-3.5 h-3.5" />

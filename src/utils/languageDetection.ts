@@ -1,4 +1,5 @@
 import { LanguageCode } from '../types';
+import { safeStorage } from './safeStorage';
 
 /**
  * Robust multilingual language detection for Indian agricultural voice assistance.
@@ -47,20 +48,18 @@ const ENGLISH_KEYWORDS = [
  * Gets the stored preferred language selected by the user during registration
  */
 export const getStoredUserPreferredLanguage = (): LanguageCode => {
-  if (typeof window === 'undefined') return 'en';
-
   try {
-    const regLang = localStorage.getItem('farm2door_registered_preferred_language');
+    const regLang = safeStorage.getItem('farm2door_registered_preferred_language');
     if (regLang && (regLang === 'te' || regLang === 'hi' || regLang === 'en')) {
       return regLang;
     }
 
-    const prefLang = localStorage.getItem('farm2door_preferred_language');
+    const prefLang = safeStorage.getItem('farm2door_preferred_language');
     if (prefLang && (prefLang === 'te' || prefLang === 'hi' || prefLang === 'en')) {
       return prefLang;
     }
 
-    const sessionStr = localStorage.getItem('farm2door_user_session');
+    const sessionStr = safeStorage.getItem('farm2door_user_session');
     if (sessionStr) {
       const session = JSON.parse(sessionStr);
       if (session?.language && (session.language === 'te' || session.language === 'hi' || session.language === 'en')) {
@@ -68,7 +67,7 @@ export const getStoredUserPreferredLanguage = (): LanguageCode => {
       }
     }
   } catch (e) {
-    console.warn('Could not read preferred language from localStorage:', e);
+    console.warn('Could not read preferred language from safeStorage:', e);
   }
 
   return 'en';
