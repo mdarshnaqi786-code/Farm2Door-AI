@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account for farmer, consumer, bulk buyer, or admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "fullName": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "description": "User email address" },
+        "role": { "type": "string", "enum": ["farmer", "consumer", "bulk_buyer", "admin"], "description": "Account role" },
+        "language": { "type": "string", "description": "Preferred interface language" },
+        "contact": { "type": "string", "description": "Mobile or phone number" },
+        "location": { "type": "string", "description": "Address or farm location" },
+        "approvalStatus": { "type": "string", "enum": ["approved", "pending", "rejected"], "description": "Approval status for sellers" }
+      },
+      "required": ["id", "fullName", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Direct farm produce listed by farmers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product ID" },
+        "name": { "type": "string", "description": "Crop or produce name" },
+        "category": { "type": "string", "description": "Category such as Vegetables, Fruits, Grains" },
+        "price": { "type": "number", "description": "Price per unit in INR" },
+        "quantity": { "type": "number", "description": "Available stock quantity" },
+        "unit": { "type": "string", "description": "Unit of measurement (kg, quintal, crate)" },
+        "farmerId": { "type": "string", "description": "ID of the farmer selling the produce" },
+        "farmerName": { "type": "string", "description": "Name of the farmer" },
+        "location": { "type": "string", "description": "Farm mandi or village location" },
+        "harvestDate": { "type": "string", "description": "Date of harvesting" }
+      },
+      "required": ["id", "name", "price", "quantity", "farmerId"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Retail or wholesale order placed by customers or bulk buyers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique order ID" },
+        "customerId": { "type": "string", "description": "Buyer user ID" },
+        "customerName": { "type": "string", "description": "Buyer customer name" },
+        "customerPhone": { "type": "string", "description": "Buyer phone contact" },
+        "deliveryAddress": { "type": "string", "description": "Complete destination delivery address" },
+        "totalAmount": { "type": "number", "description": "Total order amount in INR" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "In Transit", "Delivered", "Cancelled"], "description": "Fulfillment status" },
+        "date": { "type": "string", "description": "Order creation ISO timestamp" }
+      },
+      "required": ["id", "deliveryAddress", "totalAmount", "status"]
+    },
+    "Enquiry": {
+      "title": "Enquiry",
+      "description": "Farmer or bulk buyer inquiry message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique inquiry ID" },
+        "senderId": { "type": "string", "description": "User ID of sender" },
+        "recipientId": { "type": "string", "description": "User ID of recipient" },
+        "message": { "type": "string", "description": "Inquiry text" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["id", "message"]
+    },
+    "AdminPriceRange": {
+      "title": "AdminPriceRange",
+      "description": "Admin defined minimum and maximum allowed selling price range for an agricultural product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Normalized product identifier" },
+        "productName": { "type": "string", "description": "Agricultural crop or produce name" },
+        "minPrice": { "type": "number", "description": "Minimum allowed selling price in INR" },
+        "maxPrice": { "type": "number", "description": "Maximum allowed selling price in INR" },
+        "unit": { "type": "string", "description": "Unit of measurement (e.g. kg, quintal)" },
+        "updatedAt": { "type": "string", "description": "Date or timestamp of last update" },
+        "updatedBy": { "type": "string", "description": "Admin identity" }
+      },
+      "required": ["id", "productName", "minPrice", "maxPrice", "unit"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account profiles"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Produce catalog items"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Retail and wholesale delivery orders"
+    },
+    "/enquiries/{enquiryId}": {
+      "schema": "Enquiry",
+      "description": "Direct farmer inquiries"
+    },
+    "/admin_price_ranges/{rangeId}": {
+      "schema": "AdminPriceRange",
+      "description": "Admin price range controls for farmer selling prices"
+    }
+  }
+}

@@ -17,16 +17,24 @@ import {
   CheckCircle2, 
   Sparkles,
   ShoppingBag,
-  MessageSquare
+  MessageSquare,
+  ShieldCheck,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
-import { FarmerProduct, ProductCategory, QuantityUnit, UserAccount, LanguageCode } from '../types';
+import { FarmerProduct, ProductCategory, QuantityUnit, UserAccount, LanguageCode, AdminProductPriceRange } from '../types';
 import { 
   getMarketplaceProducts, 
   saveProduct, 
   updateProduct, 
   deleteProduct,
   getCustomerOrders,
-  getFarmerEnquiries
+  getFarmerEnquiries,
+  validateFarmerPrice,
+  getAdminPriceRanges,
+  findAdminPriceRange,
+  isProductPriceCompliant,
+  ProductComplianceResult
 } from '../utils/marketplaceStore';
 
 interface FarmerProductManagerProps {
@@ -84,12 +92,16 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
   const [imageUrl, setImageUrl] = useState(PRESET_IMAGES[0].url);
   const [grade, setGrade] = useState<'Grade A' | 'Organic Certified' | 'Premium Farm Fresh'>('Grade A');
 
+  const [adminPriceRanges, setAdminPriceRanges] = useState<AdminProductPriceRange[]>([]);
+  const [priceValidationError, setPriceValidationError] = useState<string | null>(null);
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const loadData = () => {
     setProducts(getMarketplaceProducts());
     setOrders(getCustomerOrders());
     setEnquiries(getFarmerEnquiries());
+    setAdminPriceRanges(getAdminPriceRanges());
   };
 
   useEffect(() => {
@@ -99,13 +111,40 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
     window.addEventListener('farm2door_products_updated', handleUpdate);
     window.addEventListener('farm2door_orders_updated', handleUpdate);
     window.addEventListener('farm2door_enquiries_updated', handleUpdate);
+    window.addEventListener('farm2door_price_ranges_updated', handleUpdate);
 
     return () => {
       window.removeEventListener('farm2door_products_updated', handleUpdate);
       window.removeEventListener('farm2door_orders_updated', handleUpdate);
       window.removeEventListener('farm2door_enquiries_updated', handleUpdate);
+      window.removeEventListener('farm2door_price_ranges_updated', handleUpdate);
     };
   }, []);
+
+  // Find matching Admin Price Range for the crop currently typed or selected
+  const matchingPriceRange = name.trim() ? findAdminPriceRange(name) : null;
+
+  // Check validation in real-time
+  const currentValidation = name.trim() && pricePerUnit !== ''
+    ? validateFarmerPrice(name, Number(pricePerUnit), unit)
+    : null;
+
+  // Separate active price-compliant products from hidden products requiring price adjustments
+  const { activeValidProducts, hiddenInvalidProducts } = useMemo(() => {
+    const valid: FarmerProduct[] = [];
+    const hidden: Array<{ product: FarmerProduct; compliance: ProductComplianceResult }> = [];
+
+    products.forEach((product) => {
+      const comp = isProductPriceCompliant(product);
+      if (comp.valid) {
+        valid.push(product);
+      } else {
+        hidden.push({ product, compliance: comp });
+      }
+    });
+
+    return { activeValidProducts: valid, hiddenInvalidProducts: hidden };
+  }, [products, adminPriceRanges]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -124,6 +163,7 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
     setDescription('Directly plucked from the farm field, pesticide-free, sorted Grade A quality.');
     setImageUrl(PRESET_IMAGES[0].url);
     setGrade('Grade A');
+    setPriceValidationError(null);
     setIsFormOpen(true);
   };
 
@@ -139,6 +179,7 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
     setDescription(prod.description);
     setImageUrl(prod.image);
     setGrade((prod.grade as any) || 'Grade A');
+    setPriceValidationError(null);
     setIsFormOpen(true);
   };
 
@@ -157,56 +198,69 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setPriceValidationError(null);
+
     if (!name.trim() || !availableQty || !pricePerUnit) {
-      alert('Please fill in all required fields.');
+      setPriceValidationError('Please fill in all required fields.');
+      return;
+    }
+
+    const priceNum = Number(pricePerUnit);
+    const validation = validateFarmerPrice(name.trim(), priceNum, unit);
+    if (!validation.valid) {
+      setPriceValidationError(validation.message);
       return;
     }
 
     const farmerName = currentUser?.fullName || 'Ramesh Patil';
     const fpoName = currentUser?.fpoOrOrgName || 'Sahyadri Kisan Producer Co.';
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, {
-        name: name.trim(),
-        category,
-        availableQty: Number(availableQty),
-        unit,
-        pricePerUnit: Number(pricePerUnit),
-        location: location.trim(),
-        harvestDate: harvestDate.trim(),
-        description: description.trim(),
-        image: imageUrl,
-        grade,
-      });
-      showToast(`Product "${name}" updated successfully!`);
-    } else {
-      const saved = saveProduct({
-        name: name.trim(),
-        category,
-        availableQty: Number(availableQty),
-        unit,
-        pricePerUnit: Number(pricePerUnit),
-        location: location.trim(),
-        harvestDate: harvestDate.trim(),
-        description: description.trim(),
-        image: imageUrl,
-        grade,
-        farmerName,
-        fpoName,
-        farmerId: currentUser?.id || 'farmer-default',
-        availableKg: Number(availableQty),
-        pricePerKg: Number(pricePerUnit),
-        farmerShare: Math.round(Number(pricePerUnit) * 0.8 * 10) / 10,
-        logisticsShare: Math.round(Number(pricePerUnit) * 0.12 * 10) / 10,
-        platformShare: Math.round(Number(pricePerUnit) * 0.08 * 10) / 10,
-        freshnessIndicator: 'Harvested Today • Direct from Cultivator',
-      });
-      showToast(`Product "${name}" added! It is now live in the Customer & Bulk Marketplace.`);
-      if (onProductAdded) onProductAdded(saved);
-    }
+    try {
+      if (editingProduct) {
+        updateProduct(editingProduct.id, {
+          name: name.trim(),
+          category,
+          availableQty: Number(availableQty),
+          unit,
+          pricePerUnit: priceNum,
+          location: location.trim(),
+          harvestDate: harvestDate.trim(),
+          description: description.trim(),
+          image: imageUrl,
+          grade,
+        });
+        showToast(`Product "${name}" updated successfully!`);
+      } else {
+        const saved = saveProduct({
+          name: name.trim(),
+          category,
+          availableQty: Number(availableQty),
+          unit,
+          pricePerUnit: priceNum,
+          location: location.trim(),
+          harvestDate: harvestDate.trim(),
+          description: description.trim(),
+          image: imageUrl,
+          grade,
+          farmerName,
+          fpoName,
+          farmerId: currentUser?.id || 'farmer-default',
+          availableKg: Number(availableQty),
+          pricePerKg: priceNum,
+          farmerShare: Math.round(priceNum * 0.8 * 10) / 10,
+          logisticsShare: Math.round(priceNum * 0.12 * 10) / 10,
+          platformShare: Math.round(priceNum * 0.08 * 10) / 10,
+          freshnessIndicator: 'Harvested Today • Direct from Cultivator',
+        });
+        showToast(`Product "${name}" added! It is now live in the Customer & Bulk Marketplace.`);
+        if (onProductAdded) onProductAdded(saved);
+      }
 
-    setIsFormOpen(false);
-    loadData();
+      setIsFormOpen(false);
+      loadData();
+    } catch (err: any) {
+      setPriceValidationError(err.message || 'Failed to save product due to price range validation error.');
+    }
   };
 
   const handleDelete = (id: string, prodName: string) => {
@@ -274,13 +328,83 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
         </button>
       </div>
 
+      {/* Admin Price Policy Hidden Products Notification Section */}
+      {hiddenInvalidProducts.length > 0 && (
+        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-200/80 flex items-center justify-center text-amber-900 font-black shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-800" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-amber-950 flex items-center gap-2">
+                  <span>Hidden Products Requiring Price Adjustment</span>
+                  <span className="text-xs bg-amber-200 text-amber-900 font-bold px-2.5 py-0.5 rounded-full">
+                    {hiddenInvalidProducts.length} Currently Hidden
+                  </span>
+                </h4>
+                <p className="text-xs text-amber-800 font-medium mt-0.5">
+                  The following products are currently hidden from consumers and the marketplace because their price is outside the Admin-approved range or missing price policy. Please update the price to make them visible.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {hiddenInvalidProducts.map(({ product, compliance }) => (
+              <div
+                key={product.id}
+                className="bg-white rounded-2xl border border-amber-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-14 h-14 rounded-xl object-cover border border-stone-200 shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-black text-stone-900 truncate">
+                        {product.name}
+                      </span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-700">
+                        Current: ₹{product.pricePerUnit}/{product.unit}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-rose-700 leading-snug">
+                      {compliance.reason}
+                    </p>
+                    {compliance.range && (
+                      <div className="text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span>Admin Approved Range: ₹{compliance.range.minPrice}–₹{compliance.range.maxPrice}/{compliance.range.unit}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditForm(product)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Price</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Product List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-stone-900 font-display flex items-center gap-2">
             <span>Currently Listed Products</span>
             <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
-              {products.length} Products
+              {activeValidProducts.length} Active
             </span>
           </h3>
           <span className="text-xs text-stone-500">
@@ -288,13 +412,15 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
           </span>
         </div>
 
-        {products.length === 0 ? (
+        {activeValidProducts.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-stone-200 space-y-4">
             <Sprout className="w-12 h-12 text-stone-400 mx-auto" />
             <div className="space-y-1">
-              <h4 className="text-lg font-bold text-stone-800">No Products Listed Yet</h4>
+              <h4 className="text-lg font-bold text-stone-800">No Active Products Listed</h4>
               <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                Add your first harvested crop to start receiving orders directly from consumers and institutional buyers.
+                {hiddenInvalidProducts.length > 0
+                  ? 'Your products are currently hidden because their prices need adjustment to match Admin price policies. Please adjust prices above to activate them.'
+                  : 'Add your first harvested crop to start receiving orders directly from consumers and institutional buyers.'}
               </p>
             </div>
             <button
@@ -307,7 +433,7 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {products.map((product) => {
+            {activeValidProducts.map((product) => {
               const stats = getProductOrderStats(product.id, product.name);
 
               return (
@@ -374,6 +500,23 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
                       <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">
                         {product.description}
                       </p>
+
+                      {/* Admin Price Control Compliance Status */}
+                      {(() => {
+                        const r = findAdminPriceRange(product.name);
+                        if (!r) return null;
+                        return (
+                          <div className="flex items-center justify-between text-[11px] px-2.5 py-1 rounded-xl border text-emerald-900 bg-emerald-50/90 border-emerald-300">
+                            <span className="flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Admin Range: ₹{r.minPrice}–₹{r.maxPrice}/{r.unit}</span>
+                            </span>
+                            <span className="text-emerald-700 font-bold">
+                              ✓ Within Limit
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Order & Enquiry stats */}
                       <div className="p-2.5 bg-stone-50 rounded-2xl border border-stone-200/80 flex items-center justify-between text-xs font-bold text-stone-700">
@@ -464,19 +607,76 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
             {/* Form */}
             <form onSubmit={handleSubmit} className="mt-6 space-y-4 max-h-[72vh] overflow-y-auto pr-1">
               
+              {/* Validation error banner */}
+              {priceValidationError && (
+                <div className="p-3.5 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-start gap-3 text-rose-800 text-xs">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+                  <div className="flex-1">
+                    <strong className="block font-bold text-rose-900 mb-0.5">Price Range Validation Notice:</strong>
+                    <span>{priceValidationError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPriceValidationError(null)}
+                    className="text-rose-500 hover:text-rose-700 font-bold p-1 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Product Name */}
               <div>
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
-                  Product Name *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-black uppercase tracking-wider text-stone-700 block">
+                    Product Name *
+                  </label>
+                  {matchingPriceRange && (
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Admin Range: ₹{matchingPriceRange.minPrice} – ₹{matchingPriceRange.maxPrice}/{matchingPriceRange.unit}</span>
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (priceValidationError) setPriceValidationError(null);
+                  }}
                   placeholder="e.g. Grade A Desi Tomatoes / Organic Sona Masoori Rice"
                   required
                   className="w-full px-4 py-2.5 rounded-xl border border-stone-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-600 text-sm font-semibold"
                 />
+
+                {/* Quick select crops from Admin Price Ranges */}
+                {adminPriceRanges.length > 0 && !name && (
+                  <div className="mt-2">
+                    <span className="text-[11px] text-stone-500 font-semibold block mb-1">
+                      Admin-approved crops & price ranges:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {adminPriceRanges.slice(0, 6).map((range) => (
+                        <button
+                          key={range.id}
+                          type="button"
+                          onClick={() => {
+                            setName(range.productName);
+                            setCategory(range.category as ProductCategory);
+                            setUnit(range.unit as QuantityUnit);
+                            setPricePerUnit(Math.round((range.minPrice + range.maxPrice) / 2));
+                          }}
+                          className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-medium transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Tag className="w-3 h-3 text-emerald-600" />
+                          <span>{range.productName}</span>
+                          <span className="font-bold text-emerald-700">₹{range.minPrice}–{range.maxPrice}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Category & Quality Grade */}
@@ -555,12 +755,70 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
                     type="number"
                     min="1"
                     value={pricePerUnit}
-                    onChange={(e) => setPricePerUnit(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => {
+                      setPricePerUnit(e.target.value === '' ? '' : Number(e.target.value));
+                      if (priceValidationError) setPriceValidationError(null);
+                    }}
                     placeholder="e.g. 35"
                     required
-                    className="w-full px-4 py-2.5 rounded-xl border border-stone-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-600 text-sm font-bold"
+                    className={`w-full px-4 py-2.5 rounded-xl border text-sm font-bold focus:outline-hidden focus:ring-2 ${
+                      currentValidation && !currentValidation.valid
+                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-rose-500'
+                        : 'border-stone-300 focus:ring-emerald-600'
+                    }`}
                   />
                 </div>
+              </div>
+
+              {/* Admin Price Range Verification Box */}
+              <div className="p-3.5 rounded-2xl border text-xs transition-all">
+                {matchingPriceRange ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                        Admin-Approved Price Range for {matchingPriceRange.productName}:
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-extrabold text-xs">
+                        ₹{matchingPriceRange.minPrice} – ₹{matchingPriceRange.maxPrice} / {matchingPriceRange.unit}
+                      </span>
+                    </div>
+
+                    {pricePerUnit !== '' && currentValidation && (
+                      <div className={`p-2.5 rounded-xl flex items-center gap-2 font-medium ${
+                        currentValidation.valid 
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold' 
+                          : 'bg-rose-50 text-rose-800 border border-rose-200 font-bold'
+                      }`}>
+                        {currentValidation.valid ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Valid price. Product can be listed.</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>{currentValidation.message}</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {name.trim() ? (
+                      <div className="flex items-center gap-2 text-rose-800 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-bold">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>⚠️ Admin price range has not been configured for this product. Please contact Admin.</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2 text-stone-600">
+                        <Info className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
+                        <span>Type or select the crop name to see the Admin-approved price range and live validation.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Farm Location & Harvest Date */}
@@ -664,21 +922,37 @@ export const FarmerProductManager: React.FC<FarmerProductManagerProps> = ({
               </div>
 
               {/* Submit Buttons */}
-              <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-stone-600 hover:text-stone-900 font-bold text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-7 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-sm flex items-center gap-2 shadow-md shadow-emerald-700/20 transition-all cursor-pointer"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>{editingProduct ? 'Save Changes' : 'Publish Product to Marketplace'}</span>
-                </button>
+              <div className="pt-4 border-t border-stone-200 flex flex-col sm:flex-row items-end sm:items-center justify-end gap-3">
+                {!matchingPriceRange && name.trim() ? (
+                  <p className="text-xs text-rose-600 font-bold mr-auto">
+                    ⚠️ Admin price range has not been configured for this product. Please contact Admin.
+                  </p>
+                ) : currentValidation && !currentValidation.valid ? (
+                  <p className="text-xs text-rose-600 font-bold mr-auto">
+                    ⚠️ {currentValidation.message}
+                  </p>
+                ) : null}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="px-5 py-2.5 rounded-xl text-stone-600 hover:text-stone-900 font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={Boolean(!matchingPriceRange || (currentValidation && !currentValidation.valid))}
+                    className={`px-7 py-3 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${
+                      !matchingPriceRange || (currentValidation && !currentValidation.valid)
+                        ? 'bg-stone-300 text-stone-500 cursor-not-allowed opacity-75'
+                        : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-md shadow-emerald-700/20 cursor-pointer'
+                    }`}
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>{editingProduct ? 'Save Changes' : 'Publish Product to Marketplace'}</span>
+                  </button>
+                </div>
               </div>
 
             </form>

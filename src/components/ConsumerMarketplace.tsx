@@ -21,7 +21,7 @@ import {
   Filter
 } from 'lucide-react';
 import { FarmerProduct, CartItem, UserAccount, ProductCategory } from '../types';
-import { getMarketplaceProducts } from '../utils/marketplaceStore';
+import { getValidConsumerProducts, isProductPriceCompliant } from '../utils/marketplaceStore';
 import { ProductDetailModal } from './ProductDetailModal';
 import { ProductEnquiryModal } from './ProductEnquiryModal';
 import { BulkQuoteModal } from './BulkQuoteModal';
@@ -74,9 +74,9 @@ export const ConsumerMarketplace: React.FC<ConsumerMarketplaceProps> = ({
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Load products from storage & sync on changes
+  // Load products from storage & sync on changes - strictly filter out any invalid prices
   const loadProducts = () => {
-    const list = getMarketplaceProducts();
+    const list = getValidConsumerProducts();
     setProducts(list);
   };
 
@@ -85,9 +85,11 @@ export const ConsumerMarketplace: React.FC<ConsumerMarketplaceProps> = ({
 
     const handleUpdate = () => loadProducts();
     window.addEventListener('farm2door_products_updated', handleUpdate);
+    window.addEventListener('farm2door_price_ranges_updated', handleUpdate);
 
     return () => {
       window.removeEventListener('farm2door_products_updated', handleUpdate);
+      window.removeEventListener('farm2door_price_ranges_updated', handleUpdate);
     };
   }, []);
 
@@ -107,6 +109,11 @@ export const ConsumerMarketplace: React.FC<ConsumerMarketplaceProps> = ({
   // Filter & Sort logic
   const filteredAndSortedProducts = useMemo(() => {
     let result = products.filter((product) => {
+      // Defense-in-depth: Ensure product price is strictly within Admin range
+      if (!isProductPriceCompliant(product).valid) {
+        return false;
+      }
+
       // 1. Search Query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();

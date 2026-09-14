@@ -1,5 +1,10 @@
 import { UserAccount, UserRole, ApprovalStatus } from '../types';
 import { safeStorage } from '../utils/safeStorage';
+import { 
+  saveUserToFirestore, 
+  fetchUsersFromFirestore, 
+  updateUserApprovalInFirestore 
+} from '../lib/firebase';
 
 export const DEFAULT_ADMIN: UserAccount = {
   id: 'usr-admin-naqi',
@@ -69,6 +74,38 @@ const SEED_USERS: UserAccount[] = [
 
 const STORAGE_USERS_KEY = 'farm2door_registered_users';
 const STORAGE_SESSION_KEY = 'farm2door_user_session';
+
+let isFirestoreUsersInitialized = false;
+
+/**
+ * Initializes and syncs registered users with Cloud Firestore
+ */
+export async function initFirestoreUsersSync(): Promise<void> {
+  if (isFirestoreUsersInitialized || typeof window === 'undefined') return;
+  isFirestoreUsersInitialized = true;
+
+  try {
+    const cloudUsers = await fetchUsersFromFirestore();
+    if (cloudUsers.length > 0) {
+      console.log('[Firestore] Synced', cloudUsers.length, 'users from Cloud Firestore.');
+      // Ensure DEFAULT_ADMIN is present
+      const hasAdmin = cloudUsers.some((u) => u.role === 'admin');
+      if (!hasAdmin) {
+        cloudUsers.unshift(DEFAULT_ADMIN);
+        await saveUserToFirestore(DEFAULT_ADMIN);
+      }
+      saveRegisteredUsers(cloudUsers);
+    } else {
+      // Seed Firestore with initial accounts including admin naqi
+      console.log('[Firestore] Seeding initial users to Cloud Firestore...');
+      for (const user of SEED_USERS) {
+        await saveUserToFirestore(user);
+      }
+    }
+  } catch (err) {
+    console.warn('[Firestore] User sync initialization warning:', err);
+  }
+}
 
 /**
  * Retrieves all registered users from storage, initializing with seed users if not present.
@@ -211,6 +248,9 @@ export const registerUser = (details: {
 
   users.push(newAccount);
   saveRegisteredUsers(users);
+
+  // Cloud Firestore async persist
+  saveUserToFirestore(newAccount).catch((e) => console.warn('[Firestore] Register save error:', e));
 
   return {
     success: true,
@@ -356,6 +396,9 @@ export const updateFarmerStatus = (
   users[index].approvalStatus = newStatus;
   saveRegisteredUsers(users);
 
+  // Cloud Firestore async persist
+  updateUserApprovalInFirestore(farmerId, newStatus).catch((e) => console.warn('[Firestore] Status update error:', e));
+
   // If this farmer is currently in active session, update session
   const currentSession = getCurrentUserSession();
   if (currentSession && currentSession.id === farmerId) {
@@ -430,6 +473,7 @@ export const changeAdminPassword = async (
     }
     users[adminIndex].password = newPassword;
     saveRegisteredUsers(users);
+    saveUserToFirestore(users[adminIndex]).catch((e) => console.warn('[Firestore] Admin update error:', e));
     return { success: true };
   }
 

@@ -245,3 +245,14 @@ export interface LogisticsVehicle {
   status: 'Active En Route' | 'Available at Hub' | 'Loading';
   isElectric: boolean;
 }
+
+export interface AdminProductPriceRange {
+  id: string;
+  productName: string;
+  category?: ProductCategory;
+  minPrice: number;
+  maxPrice: number;
+  unit: string; // e.g. 'kg', 'quintal'
+  updatedAt: string;
+  updatedBy: string;
+}

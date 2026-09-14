@@ -1,23 +1,12 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import fs from 'fs';
 
-/**
- * NOTE FOR PRODUCTION DEPLOYMENTS:
- * This Express server (server.ts) is used exclusively for local development (npm run dev via tsx).
- * In production on Vercel, requests to /api/kisan-assistant and /api/health are executed by
- * the serverless functions in /api/kisan-assistant.ts and /api/health.ts.
- */
-
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
@@ -443,6 +432,86 @@ function requireAdmin(req: any, res: any, next: any) {
 }
 
 // ----------------------------------------------------------------------------
+// SERVER PRICE RANGE PERSISTENCE & HELPERS
+// ----------------------------------------------------------------------------
+
+interface ServerPriceRange {
+  id: string;
+  productName: string;
+  category?: string;
+  minPrice: number;
+  maxPrice: number;
+  unit: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+const PRICE_RANGES_FILE = path.join(process.cwd(), 'data', 'price_ranges.json');
+
+const INITIAL_SERVER_PRICE_RANGES: ServerPriceRange[] = [
+  { id: 'tomato', productName: 'Tomato', category: 'Vegetables', minPrice: 20, maxPrice: 35, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'onion', productName: 'Onion', category: 'Vegetables', minPrice: 25, maxPrice: 40, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'rice', productName: 'Rice', category: 'Grains', minPrice: 40, maxPrice: 75, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'potato', productName: 'Potato', category: 'Vegetables', minPrice: 18, maxPrice: 30, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'mango', productName: 'Mango', category: 'Fruits', minPrice: 60, maxPrice: 160, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'banana', productName: 'Banana', category: 'Fruits', minPrice: 25, maxPrice: 45, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'green-chilli', productName: 'Green Chilli', category: 'Vegetables', minPrice: 35, maxPrice: 70, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'pulses-dal', productName: 'Pulses / Dal', category: 'Pulses', minPrice: 85, maxPrice: 140, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'spices-turmeric', productName: 'Spices / Turmeric', category: 'Spices', minPrice: 120, maxPrice: 220, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' },
+  { id: 'dairy-ghee', productName: 'Dairy / Ghee', category: 'Dairy Products', minPrice: 450, maxPrice: 900, unit: 'kg', updatedAt: 'Today', updatedBy: 'Admin (naqi)' }
+];
+
+function loadServerPriceRanges(): ServerPriceRange[] {
+  try {
+    if (fs.existsSync(PRICE_RANGES_FILE)) {
+      const data = fs.readFileSync(PRICE_RANGES_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.warn('Could not read existing price ranges file, using default seed:', err);
+  }
+  return INITIAL_SERVER_PRICE_RANGES;
+}
+
+function saveServerPriceRanges(ranges: ServerPriceRange[]) {
+  try {
+    const dir = path.dirname(PRICE_RANGES_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(PRICE_RANGES_FILE, JSON.stringify(ranges, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write price ranges file:', err);
+  }
+}
+
+let serverPriceRanges: ServerPriceRange[] = loadServerPriceRanges();
+
+function findServerPriceRange(productName: string): ServerPriceRange | null {
+  if (!productName || !productName.trim()) return null;
+  const trimmed = productName.trim().toLowerCase();
+  
+  // Exact match
+  const exact = serverPriceRanges.find((r) => r.productName.toLowerCase() === trimmed);
+  if (exact) return exact;
+
+  // Normalized ID match
+  const slug = trimmed.replace(/[^a-z0-9]/g, '-');
+  const idMatch = serverPriceRanges.find((r) => r.id.toLowerCase() === slug || slug.includes(r.id.toLowerCase()));
+  if (idMatch) return idMatch;
+
+  // Substring match
+  const subMatch = serverPriceRanges.find((r) => {
+    const rName = r.productName.toLowerCase();
+    return trimmed.includes(rName) || rName.includes(trimmed);
+  });
+  if (subMatch) return subMatch;
+
+  return null;
+}
+
+// ----------------------------------------------------------------------------
 // AUTH ROUTE: POST /api/auth/register
 // ----------------------------------------------------------------------------
 app.post('/api/auth/register', (req, res) => {
@@ -723,6 +792,171 @@ app.post('/api/admin/change-password', requireAdmin, (req: any, res) => {
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = serverUsers.map((u) => sanitizeUser(u));
   return res.json({ success: true, users });
+});
+
+// ----------------------------------------------------------------------------
+// PRICE RANGES ROUTES (Product Price Management)
+// ----------------------------------------------------------------------------
+
+// Public & Farmer read access to Admin-defined price ranges
+app.get(['/api/price-ranges', '/api/admin/price-ranges'], (req, res) => {
+  return res.json({
+    success: true,
+    priceRanges: serverPriceRanges,
+  });
+});
+
+// Admin save or update price range
+app.post('/api/admin/price-ranges', (req: any, res) => {
+  const { id, productName, category, minPrice, maxPrice, unit, updatedBy } = req.body;
+
+  if (!productName || typeof productName !== 'string' || !productName.trim()) {
+    return res.status(400).json({ error: 'invalid_product_name', message: 'Product name is required.' });
+  }
+
+  const numMin = Number(minPrice);
+  const numMax = Number(maxPrice);
+
+  if (isNaN(numMin) || numMin < 0) {
+    return res.status(400).json({ error: 'invalid_min_price', message: 'Minimum price must be a valid number >= 0.' });
+  }
+
+  if (isNaN(numMax) || numMax < 0) {
+    return res.status(400).json({ error: 'invalid_max_price', message: 'Maximum price must be a valid number >= 0.' });
+  }
+
+  if (numMax < numMin) {
+    return res.status(400).json({
+      error: 'invalid_range',
+      message: 'Maximum price must be greater than or equal to Minimum price.',
+    });
+  }
+
+  const rangeId = id || productName.trim().toLowerCase().replace(/[^a-z0-9]/g, '-') || `range-${Date.now()}`;
+  const newRange: ServerPriceRange = {
+    id: rangeId,
+    productName: productName.trim(),
+    category: category || 'Vegetables',
+    minPrice: numMin,
+    maxPrice: numMax,
+    unit: unit || 'kg',
+    updatedAt: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+    updatedBy: updatedBy || 'Admin',
+  };
+
+  const existingIdx = serverPriceRanges.findIndex(
+    (r) => r.id === rangeId || r.productName.toLowerCase() === newRange.productName.toLowerCase()
+  );
+
+  if (existingIdx >= 0) {
+    serverPriceRanges[existingIdx] = newRange;
+  } else {
+    serverPriceRanges.unshift(newRange);
+  }
+
+  saveServerPriceRanges(serverPriceRanges);
+
+  return res.json({
+    success: true,
+    message: `Price range for "${newRange.productName}" saved: ₹${newRange.minPrice}–₹${newRange.maxPrice}/${newRange.unit}.`,
+    priceRange: newRange,
+  });
+});
+
+// Admin delete price range
+app.delete('/api/admin/price-ranges/:id', (req, res) => {
+  const { id } = req.params;
+  const initialLen = serverPriceRanges.length;
+  serverPriceRanges = serverPriceRanges.filter((r) => r.id !== id);
+
+  if (serverPriceRanges.length === initialLen) {
+    return res.status(404).json({ error: 'not_found', message: 'Price range not found.' });
+  }
+
+  saveServerPriceRanges(serverPriceRanges);
+  return res.json({ success: true, message: 'Price range deleted.' });
+});
+
+// Backend validation helper
+function validateServerPrice(productName: string, price: number, unit?: string) {
+  const range = findServerPriceRange(productName);
+  if (!range) {
+    return {
+      valid: false,
+      hasConfiguredRange: false,
+      message: '⚠️ Admin price range has not been configured for this product. Please contact Admin.',
+      range: null,
+    };
+  }
+
+  const numPrice = Number(price);
+  if (isNaN(numPrice) || numPrice <= 0) {
+    return {
+      valid: false,
+      hasConfiguredRange: true,
+      message: `Price must be between ₹${range.minPrice} and ₹${range.maxPrice} per ${range.unit} as defined by Admin.`,
+      range,
+      minPrice: range.minPrice,
+      maxPrice: range.maxPrice,
+      unit: range.unit,
+    };
+  }
+
+  if (numPrice < range.minPrice || numPrice > range.maxPrice) {
+    return {
+      valid: false,
+      hasConfiguredRange: true,
+      message: `Price must be between ₹${range.minPrice} and ₹${range.maxPrice} per ${range.unit} as defined by Admin.`,
+      range,
+      minPrice: range.minPrice,
+      maxPrice: range.maxPrice,
+      unit: range.unit,
+    };
+  }
+
+  return {
+    valid: true,
+    hasConfiguredRange: true,
+    message: 'Valid price. Product can be listed.',
+    range,
+    minPrice: range.minPrice,
+    maxPrice: range.maxPrice,
+    unit: range.unit,
+  };
+}
+
+// Backend validation endpoint
+app.post('/api/products/validate-price', (req, res) => {
+  const { productName, price, unit } = req.body;
+  if (!productName) {
+    return res.status(400).json({ valid: false, message: 'Product name is required.' });
+  }
+
+  const result = validateServerPrice(productName, price, unit);
+  return res.status(200).json(result);
+});
+
+// Backend product verification before listing (enforces backend validation)
+app.post('/api/products/verify-and-list', (req, res) => {
+  const { name, pricePerUnit, unit } = req.body;
+  if (!name || pricePerUnit === undefined) {
+    return res.status(400).json({ error: 'missing_fields', message: 'Product name and price are required.' });
+  }
+
+  const result = validateServerPrice(name, pricePerUnit, unit);
+  if (!result.valid) {
+    return res.status(400).json({
+      error: result.hasConfiguredRange ? 'price_out_of_range' : 'no_admin_range',
+      message: result.message,
+      range: result.range,
+    });
+  }
+
+  return res.json({
+    success: true,
+    message: result.message,
+    range: result.range,
+  });
 });
 
 // Health Check API Endpoint

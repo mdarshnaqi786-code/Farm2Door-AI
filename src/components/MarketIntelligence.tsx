@@ -22,7 +22,7 @@ import {
   RefreshCw,
   Search
 } from 'lucide-react';
-import { LanguageCode } from '../types';
+import { LanguageCode, AdminProductPriceRange } from '../types';
 import { 
   DateRangeFilter, 
   calculateOverviewStats, 
@@ -36,6 +36,7 @@ import {
   syncCsvDataset,
   answerMarketQueryFromData
 } from '../data/marketDataService';
+import { getAdminPriceRanges } from '../utils/marketplaceStore';
 import { MandiPriceTrendChart } from './MandiPriceTrendChart';
 import { speakText, stopSpeech } from '../utils/speech';
 
@@ -68,7 +69,9 @@ export const MarketIntelligence: React.FC<MarketIntelligenceProps> = ({
 
   // Synchronize CSV on mount
   useEffect(() => {
-    syncCsvDataset();
+    syncCsvDataset().catch((err) => {
+      console.warn('Market intelligence CSV dataset load note:', err);
+    });
   }, []);
 
   // Filter options derived from dataset
@@ -500,6 +503,37 @@ export const MarketIntelligence: React.FC<MarketIntelligenceProps> = ({
         </div>
 
       </div>
+
+      {/* Admin Price Range Policy for Selected Commodity */}
+      {(() => {
+        const ranges = getAdminPriceRanges();
+        const matching = ranges.find((r) => {
+          const rName = r.productName.toLowerCase();
+          const sName = selectedCommodity.toLowerCase();
+          return sName.includes(rName) || rName.includes(sName);
+        });
+        if (!matching) return null;
+        return (
+          <div className="bg-emerald-900/5 border border-emerald-700/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
+              <div>
+                <span className="font-bold text-stone-900 block text-xs">
+                  Farm2Door Admin Selling-Price Range for {matching.productName}:
+                </span>
+                <span className="text-stone-600 text-[11px]">
+                  Registered farmers can only list and sell this crop between the Admin-enforced minimum and maximum limits.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-3.5 py-1.5 rounded-xl bg-emerald-800 text-white font-extrabold text-xs shadow-xs">
+                Allowed Range: ₹{matching.minPrice} – ₹{matching.maxPrice} / {matching.unit}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* 4. HISTORICAL PRICE TREND CHART (INTERACTIVE WITH TOGGLES)               */}

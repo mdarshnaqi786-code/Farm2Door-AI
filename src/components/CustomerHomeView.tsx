@@ -15,7 +15,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { FarmerProduct, CartItem, LanguageCode } from '../types';
-import { FARMER_PRODUCTS } from '../data/mockData';
+import { getValidConsumerProducts } from '../utils/marketplaceStore';
 import { speakText } from '../utils/speech';
 
 interface CustomerHomeViewProps {
@@ -37,7 +37,21 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   onEndSpeech,
   onViewOrders,
 }) => {
-  const featuredProducts = FARMER_PRODUCTS.slice(0, 3);
+  const [featuredProducts, setFeaturedProducts] = React.useState<FarmerProduct[]>(() => {
+    return getValidConsumerProducts().slice(0, 3);
+  });
+
+  React.useEffect(() => {
+    const updateProducts = () => {
+      setFeaturedProducts(getValidConsumerProducts().slice(0, 3));
+    };
+    window.addEventListener('farm2door_products_updated', updateProducts);
+    window.addEventListener('farm2door_price_ranges_updated', updateProducts);
+    return () => {
+      window.removeEventListener('farm2door_products_updated', updateProducts);
+      window.removeEventListener('farm2door_price_ranges_updated', updateProducts);
+    };
+  }, []);
 
   const handleSpeakFreshUpdate = () => {
     const announcement =

@@ -1,11 +1,10 @@
-console.log('[BOOT] entry file executing');
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import 'leaflet/dist/leaflet.css';
 import './index.css';
 
-console.log('[BOOT] calling ReactDOM render');
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -13,5 +12,4 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 );
-console.log('[BOOT] render call completed');
 

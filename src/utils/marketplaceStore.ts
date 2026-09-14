@@ -5,9 +5,29 @@ import {
   FarmerEnquiry, 
   ProductCategory, 
   QuantityUnit, 
-  OrderStatus 
+  OrderStatus,
+  AdminProductPriceRange
 } from '../types';
 import { safeStorage } from './safeStorage';
+import { 
+  saveProductToFirestore, 
+  deleteProductFromFirestore, 
+  fetchProductsFromFirestore,
+  saveOrderToFirestore,
+  updateOrderStatusInFirestore,
+  fetchOrdersFromFirestore,
+  saveBulkQuoteToFirestore,
+  fetchBulkQuotesFromFirestore,
+  saveEnquiryToFirestore,
+  replyEnquiryInFirestore,
+  fetchEnquiriesFromFirestore,
+  subscribeToProducts,
+  subscribeToOrders,
+  fetchAdminPriceRangesFromFirestore,
+  saveAdminPriceRangeToFirestore,
+  deleteAdminPriceRangeFromFirestore,
+  subscribeToAdminPriceRanges
+} from '../lib/firebase';
 
 const safeDispatchEvent = (name: string) => {
   try {
@@ -23,6 +43,193 @@ const PRODUCTS_KEY = 'farm2door_marketplace_products';
 const ORDERS_KEY = 'farm2door_customer_orders';
 const BULK_QUOTES_KEY = 'farm2door_bulk_quotes';
 const ENQUIRIES_KEY = 'farm2door_farmer_enquiries';
+export const ADMIN_PRICE_RANGES_KEY = 'farm2door_admin_price_ranges';
+
+export const DEFAULT_ADMIN_PRICE_RANGES: AdminProductPriceRange[] = [
+  {
+    id: 'tomato',
+    productName: 'Tomato',
+    category: 'Vegetables',
+    minPrice: 20,
+    maxPrice: 35,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'onion',
+    productName: 'Onion',
+    category: 'Vegetables',
+    minPrice: 25,
+    maxPrice: 40,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'rice',
+    productName: 'Rice',
+    category: 'Grains',
+    minPrice: 40,
+    maxPrice: 75,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'potato',
+    productName: 'Potato',
+    category: 'Vegetables',
+    minPrice: 18,
+    maxPrice: 30,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'mango',
+    productName: 'Mango',
+    category: 'Fruits',
+    minPrice: 60,
+    maxPrice: 160,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'banana',
+    productName: 'Banana',
+    category: 'Fruits',
+    minPrice: 25,
+    maxPrice: 45,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'green-chilli',
+    productName: 'Green Chilli',
+    category: 'Vegetables',
+    minPrice: 35,
+    maxPrice: 70,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'pulses-dal',
+    productName: 'Pulses / Dal',
+    category: 'Pulses',
+    minPrice: 85,
+    maxPrice: 140,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'spices-turmeric',
+    productName: 'Spices / Turmeric',
+    category: 'Spices',
+    minPrice: 120,
+    maxPrice: 220,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'dairy-ghee',
+    productName: 'Dairy / Ghee',
+    category: 'Dairy Products',
+    minPrice: 450,
+    maxPrice: 900,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  }
+];
+
+// Flag to prevent re-initializing sync multiple times
+let isFirestoreInitialized = false;
+
+/**
+ * Initializes Firestore cloud synchronization and real-time listeners.
+ */
+export async function initFirestoreMarketplaceSync() {
+  if (isFirestoreInitialized || typeof window === 'undefined') return;
+  isFirestoreInitialized = true;
+
+  console.log('[Firestore] Initializing Cloud Firestore sync...');
+
+  try {
+    // 1. Sync Products
+    const cloudProducts = await fetchProductsFromFirestore();
+    if (cloudProducts.length > 0) {
+      safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(cloudProducts));
+      safeDispatchEvent('farm2door_products_updated');
+    } else {
+      // Seed cloud with initial demo products
+      console.log('[Firestore] Seeding initial products to Cloud Firestore...');
+      for (const prod of INITIAL_DEMO_PRODUCTS) {
+        await saveProductToFirestore(prod);
+      }
+    }
+
+    // 2. Sync Orders
+    const cloudOrders = await fetchOrdersFromFirestore();
+    if (cloudOrders.length > 0) {
+      safeStorage.setItem(ORDERS_KEY, JSON.stringify(cloudOrders));
+      safeDispatchEvent('farm2door_orders_updated');
+    } else {
+      // Seed cloud with initial demo orders
+      console.log('[Firestore] Seeding initial orders to Cloud Firestore...');
+      for (const order of INITIAL_DEMO_ORDERS) {
+        await saveOrderToFirestore(order);
+      }
+    }
+
+    // 3. Sync Admin Product Price Ranges
+    const cloudPriceRanges = await fetchAdminPriceRangesFromFirestore();
+    if (cloudPriceRanges.length > 0) {
+      safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(cloudPriceRanges));
+      safeDispatchEvent('farm2door_price_ranges_updated');
+    } else {
+      console.log('[Firestore] Seeding admin price ranges to Cloud Firestore...');
+      for (const range of DEFAULT_ADMIN_PRICE_RANGES) {
+        await saveAdminPriceRangeToFirestore(range);
+      }
+      safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(DEFAULT_ADMIN_PRICE_RANGES));
+      safeDispatchEvent('farm2door_price_ranges_updated');
+    }
+
+    // 4. Realtime Listener for Products
+    subscribeToProducts((updatedProducts) => {
+      if (updatedProducts && updatedProducts.length > 0) {
+        safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProducts));
+        safeDispatchEvent('farm2door_products_updated');
+      }
+    });
+
+    // 5. Realtime Listener for Orders
+    subscribeToOrders((updatedOrders) => {
+      if (updatedOrders && updatedOrders.length > 0) {
+        safeStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+        safeDispatchEvent('farm2door_orders_updated');
+      }
+    });
+
+    // 6. Realtime Listener for Admin Price Ranges
+    subscribeToAdminPriceRanges((updatedRanges) => {
+      if (updatedRanges && updatedRanges.length > 0) {
+        safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(updatedRanges));
+        safeDispatchEvent('farm2door_price_ranges_updated');
+      }
+    });
+
+    console.log('[Firestore] Realtime Cloud Firestore listeners active.');
+  } catch (err) {
+    console.warn('[Firestore] Sync initialization warning:', err);
+  }
+}
 
 // High-quality realistic sample agricultural products covering all required categories
 export const INITIAL_DEMO_PRODUCTS: FarmerProduct[] = [
@@ -398,6 +605,225 @@ const INITIAL_DEMO_ENQUIRIES: FarmerEnquiry[] = [
 ];
 
 // -------------------------------------------------------------
+// ADMIN PRODUCT PRICE RANGE MANAGEMENT & VALIDATION
+// -------------------------------------------------------------
+
+export interface PriceValidationResult {
+  valid: boolean;
+  message: string;
+  hasConfiguredRange: boolean;
+  range: AdminProductPriceRange | null;
+  minPrice?: number;
+  maxPrice?: number;
+  unit?: string;
+}
+
+export function getAdminPriceRanges(): AdminProductPriceRange[] {
+  try {
+    const raw = safeStorage.getItem(ADMIN_PRICE_RANGES_KEY);
+    if (!raw) {
+      safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(DEFAULT_ADMIN_PRICE_RANGES));
+      return DEFAULT_ADMIN_PRICE_RANGES;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(DEFAULT_ADMIN_PRICE_RANGES));
+      return DEFAULT_ADMIN_PRICE_RANGES;
+    }
+    return parsed;
+  } catch (e) {
+    console.error('Failed to parse admin price ranges:', e);
+    return DEFAULT_ADMIN_PRICE_RANGES;
+  }
+}
+
+export function findAdminPriceRange(productName: string): AdminProductPriceRange | null {
+  if (!productName || !productName.trim()) return null;
+  const ranges = getAdminPriceRanges();
+  const trimmed = productName.trim().toLowerCase();
+
+  // 1. Exact product name match
+  const exact = ranges.find((r) => r.productName.toLowerCase() === trimmed);
+  if (exact) return exact;
+
+  // 2. Normalized ID match (e.g. 'green-chilli' matches 'green chilli')
+  const slug = trimmed.replace(/[^a-z0-9]/g, '-');
+  const idMatch = ranges.find((r) => r.id.toLowerCase() === slug || slug.includes(r.id.toLowerCase()));
+  if (idMatch) return idMatch;
+
+  // 3. Substring keyword match (e.g. "Farm Fresh Desi Tomato" contains "Tomato", "Organic Sona Masoori Rice" contains "Rice")
+  const keywordMatch = ranges.find((r) => {
+    const rName = r.productName.toLowerCase();
+    return trimmed.includes(rName) || rName.includes(trimmed);
+  });
+  if (keywordMatch) return keywordMatch;
+
+  return null;
+}
+
+export interface ProductComplianceResult {
+  valid: boolean;
+  hasConfiguredRange: boolean;
+  range: AdminProductPriceRange | null;
+  reason: string;
+}
+
+export function validateFarmerPrice(productName: string, price: number, unit?: string): PriceValidationResult {
+  const range = findAdminPriceRange(productName);
+
+  if (!range) {
+    return {
+      valid: false,
+      hasConfiguredRange: false,
+      message: '⚠️ Admin price range has not been configured for this product. Please contact Admin.',
+      range: null,
+    };
+  }
+
+  const numPrice = Number(price);
+  if (isNaN(numPrice) || numPrice <= 0) {
+    return {
+      valid: false,
+      hasConfiguredRange: true,
+      message: `Price must be between ₹${range.minPrice} and ₹${range.maxPrice} per ${range.unit} as defined by Admin.`,
+      range,
+      minPrice: range.minPrice,
+      maxPrice: range.maxPrice,
+      unit: range.unit,
+    };
+  }
+
+  if (numPrice < range.minPrice || numPrice > range.maxPrice) {
+    return {
+      valid: false,
+      hasConfiguredRange: true,
+      message: `Price must be between ₹${range.minPrice} and ₹${range.maxPrice} per ${range.unit} as defined by Admin.`,
+      range,
+      minPrice: range.minPrice,
+      maxPrice: range.maxPrice,
+      unit: range.unit,
+    };
+  }
+
+  return {
+    valid: true,
+    hasConfiguredRange: true,
+    message: 'Valid price. Product can be listed.',
+    range,
+    minPrice: range.minPrice,
+    maxPrice: range.maxPrice,
+    unit: range.unit,
+  };
+}
+
+/**
+ * Validates whether an existing product is compliant with the current Admin Price Ranges.
+ * If range does not exist, or price < minPrice or price > maxPrice, product is considered invalid and hidden.
+ */
+export function isProductPriceCompliant(
+  product: FarmerProduct,
+  ranges?: AdminProductPriceRange[]
+): ProductComplianceResult {
+  const range = findAdminPriceRange(product.name);
+  if (!range) {
+    return {
+      valid: false,
+      hasConfiguredRange: false,
+      range: null,
+      reason: '⚠️ Admin price range has not been configured for this product. Please contact Admin.',
+    };
+  }
+
+  const price = Number(product.pricePerUnit || product.pricePerKg);
+  if (isNaN(price) || price < range.minPrice || price > range.maxPrice) {
+    return {
+      valid: false,
+      hasConfiguredRange: true,
+      range,
+      reason: `⚠️ This product is currently hidden because its price ₹${price}/${product.unit || range.unit} is outside the Admin-approved range of ₹${range.minPrice}–₹${range.maxPrice}/${range.unit}. Please update the price to make it visible.`,
+    };
+  }
+
+  return {
+    valid: true,
+    hasConfiguredRange: true,
+    range,
+    reason: 'Valid price. Product can be listed.',
+  };
+}
+
+/**
+ * Returns strictly valid products for consumers where price is within the Admin-approved range.
+ */
+export function getValidConsumerProducts(): FarmerProduct[] {
+  const all = getMarketplaceProducts();
+  return all.filter((product) => isProductPriceCompliant(product).valid);
+}
+
+export function saveAdminPriceRange(
+  rangeData: Omit<AdminProductPriceRange, 'id' | 'updatedAt'> & { id?: string; updatedAt?: string }
+): AdminProductPriceRange {
+  const ranges = getAdminPriceRanges();
+  const id = rangeData.id || rangeData.productName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-') || `range-${Date.now()}`;
+  
+  const minPrice = Math.max(0, Number(rangeData.minPrice) || 0);
+  const maxPrice = Math.max(minPrice, Number(rangeData.maxPrice) || minPrice);
+  const unit = rangeData.unit || 'kg';
+
+  const newRange: AdminProductPriceRange = {
+    ...rangeData,
+    id,
+    productName: rangeData.productName.trim(),
+    minPrice,
+    maxPrice,
+    unit,
+    updatedAt: rangeData.updatedAt || 'Today',
+    updatedBy: rangeData.updatedBy || 'Admin',
+  };
+
+  const existingIndex = ranges.findIndex((r) => r.id === id || r.productName.toLowerCase() === newRange.productName.toLowerCase());
+  if (existingIndex >= 0) {
+    ranges[existingIndex] = newRange;
+  } else {
+    ranges.unshift(newRange);
+  }
+
+  safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(ranges));
+  safeDispatchEvent('farm2door_price_ranges_updated');
+
+  // Cloud Firestore async persist
+  saveAdminPriceRangeToFirestore(newRange).catch((e) => console.warn('[Firestore] Price range sync error:', e));
+
+  // Sync to server backend API
+  try {
+    fetch('/api/admin/price-ranges', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRange),
+    }).catch(() => {});
+  } catch {}
+
+  return newRange;
+}
+
+export function deleteAdminPriceRange(id: string): boolean {
+  const ranges = getAdminPriceRanges();
+  const filtered = ranges.filter((r) => r.id !== id);
+  if (filtered.length === ranges.length) return false;
+
+  safeStorage.setItem(ADMIN_PRICE_RANGES_KEY, JSON.stringify(filtered));
+  safeDispatchEvent('farm2door_price_ranges_updated');
+
+  deleteAdminPriceRangeFromFirestore(id).catch((e) => console.warn('[Firestore] Price range delete error:', e));
+
+  try {
+    fetch(`/api/admin/price-ranges/${id}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
+
+  return true;
+}
+
+// -------------------------------------------------------------
 // PRODUCT STORAGE OPERATIONS
 // -------------------------------------------------------------
 
@@ -427,6 +853,12 @@ export function saveProduct(productData: Omit<FarmerProduct, 'id'> & { id?: stri
   const unit = productData.unit || 'kg';
   const pricePerUnit = Number(productData.pricePerUnit) || 0;
   const availableQty = Number(productData.availableQty) || 0;
+
+  // Enforce Admin price range constraints
+  const validation = validateFarmerPrice(productData.name, pricePerUnit, unit);
+  if (!validation.valid) {
+    throw new Error(validation.message);
+  }
 
   // Calculate fair farmer share ~80%
   const farmerShare = productData.farmerShare || Math.round(pricePerUnit * 0.8 * 10) / 10;
@@ -458,6 +890,10 @@ export function saveProduct(productData: Omit<FarmerProduct, 'id'> & { id?: stri
 
   safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   safeDispatchEvent('farm2door_products_updated');
+
+  // Cloud Firestore async persist
+  saveProductToFirestore(newProduct).catch((e) => console.warn('[Firestore] Product sync error:', e));
+
   return newProduct;
 }
 
@@ -467,6 +903,17 @@ export function updateProduct(id: string, updates: Partial<FarmerProduct>): Farm
   if (index === -1) return null;
 
   const existing = products[index];
+
+  // If price or name is updated, enforce Admin price range constraints
+  if (updates.pricePerUnit !== undefined || updates.name !== undefined) {
+    const checkName = updates.name || existing.name;
+    const checkPrice = updates.pricePerUnit !== undefined ? Number(updates.pricePerUnit) : existing.pricePerUnit;
+    const validation = validateFarmerPrice(checkName, checkPrice, existing.unit);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+  }
+
   const updatedProduct: FarmerProduct = {
     ...existing,
     ...updates,
@@ -477,6 +924,10 @@ export function updateProduct(id: string, updates: Partial<FarmerProduct>): Farm
   products[index] = updatedProduct;
   safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   safeDispatchEvent('farm2door_products_updated');
+
+  // Cloud Firestore async persist
+  saveProductToFirestore(updatedProduct).catch((e) => console.warn('[Firestore] Product update error:', e));
+
   return updatedProduct;
 }
 
@@ -487,6 +938,10 @@ export function deleteProduct(id: string): boolean {
 
   safeStorage.setItem(PRODUCTS_KEY, JSON.stringify(filtered));
   safeDispatchEvent('farm2door_products_updated');
+
+  // Cloud Firestore async delete
+  deleteProductFromFirestore(id).catch((e) => console.warn('[Firestore] Product delete error:', e));
+
   return true;
 }
 
@@ -543,6 +998,10 @@ export function createCustomerOrder(orderData: Omit<CustomerOrder, 'id' | 'times
 
   safeDispatchEvent('farm2door_orders_updated');
   safeDispatchEvent('farm2door_products_updated');
+
+  // Cloud Firestore async persist
+  saveOrderToFirestore(newOrder).catch((e) => console.warn('[Firestore] Order sync error:', e));
+
   return newOrder;
 }
 
@@ -554,6 +1013,10 @@ export function updateOrderStatus(orderId: string, status: OrderStatus): boolean
   target.status = status;
   safeStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
   safeDispatchEvent('farm2door_orders_updated');
+
+  // Cloud Firestore async update
+  updateOrderStatusInFirestore(orderId, status).catch((e) => console.warn('[Firestore] Order status error:', e));
+
   return true;
 }
 
@@ -592,6 +1055,10 @@ export function createBulkQuote(quoteData: Omit<BulkQuoteRequest, 'id' | 'timest
   quotes.unshift(newQuote);
   safeStorage.setItem(BULK_QUOTES_KEY, JSON.stringify(quotes));
   safeDispatchEvent('farm2door_bulk_quotes_updated');
+
+  // Cloud Firestore async persist
+  saveBulkQuoteToFirestore(newQuote).catch((e) => console.warn('[Firestore] Bulk quote sync error:', e));
+
   return newQuote;
 }
 
@@ -641,6 +1108,10 @@ export function createFarmerEnquiry(enquiryData: Omit<FarmerEnquiry, 'id' | 'tim
   enquiries.unshift(newEnquiry);
   safeStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
   safeDispatchEvent('farm2door_enquiries_updated');
+
+  // Cloud Firestore async persist
+  saveEnquiryToFirestore(newEnquiry).catch((e) => console.warn('[Firestore] Enquiry sync error:', e));
+
   return newEnquiry;
 }
 
@@ -653,5 +1124,9 @@ export function replyToEnquiry(enquiryId: string, replyMessage: string): boolean
   target.replyMessage = replyMessage;
   safeStorage.setItem(ENQUIRIES_KEY, JSON.stringify(enquiries));
   safeDispatchEvent('farm2door_enquiries_updated');
+
+  // Cloud Firestore async reply
+  replyEnquiryInFirestore(enquiryId, replyMessage).catch((e) => console.warn('[Firestore] Reply sync error:', e));
+
   return true;
 }

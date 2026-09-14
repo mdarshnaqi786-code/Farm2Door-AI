@@ -23,16 +23,32 @@ import {
   Check, 
   Wheat,
   Lock,
-  Key
+  Key,
+  Database,
+  Cloud,
+  Tag,
+  IndianRupee,
+  Plus,
+  Trash2,
+  Edit2,
+  AlertTriangle
 } from 'lucide-react';
-import { UserAccount, ApprovalStatus } from '../types';
+import { UserAccount, ApprovalStatus, AdminProductPriceRange, ProductCategory, QuantityUnit } from '../types';
 import { 
   getFarmersList, 
   getCustomersList, 
   updateFarmerStatus, 
   registerUser,
-  changeAdminPassword
+  changeAdminPassword,
+  initFirestoreUsersSync
 } from '../data/authService';
+import { 
+  initFirestoreMarketplaceSync,
+  getAdminPriceRanges,
+  saveAdminPriceRange,
+  deleteAdminPriceRange
+} from '../utils/marketplaceStore';
+import { FIREBASE_PROJECT_ID, FIRESTORE_DATABASE_ID } from '../lib/firebase';
 
 interface AdminDashboardProps {
   currentUser: UserAccount;
@@ -47,10 +63,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [farmers, setFarmers] = useState<UserAccount[]>([]);
   const [customers, setCustomers] = useState<UserAccount[]>([]);
-  const [activeTab, setActiveTab] = useState<'farmers' | 'customers'>('farmers');
+  const [activeTab, setActiveTab] = useState<'farmers' | 'customers' | 'price_management'>('farmers');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  // Product Price Management State
+  const [priceRanges, setPriceRanges] = useState<AdminProductPriceRange[]>([]);
+  const [editingRangeId, setEditingRangeId] = useState<string | null>(null);
+  const [productNameInput, setProductNameInput] = useState('');
+  const [categoryInput, setCategoryInput] = useState<ProductCategory>('Vegetables');
+  const [minPriceInput, setMinPriceInput] = useState<number | ''>('');
+  const [maxPriceInput, setMaxPriceInput] = useState<number | ''>('');
+  const [unitInput, setUnitInput] = useState<QuantityUnit>('kg');
+  const [priceSearchQuery, setPriceSearchQuery] = useState('');
+  const [priceCategoryFilter, setPriceCategoryFilter] = useState<string>('all');
+  const [rangeFormError, setRangeFormError] = useState<string | null>(null);
 
   // Password change state
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -60,14 +88,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Load registered users
-  const refreshUsers = () => {
+  // Load registered users & sync with Cloud Firestore
+  const refreshUsers = async () => {
     setFarmers(getFarmersList());
     setCustomers(getCustomersList());
+    try {
+      await initFirestoreUsersSync();
+      await initFirestoreMarketplaceSync();
+      setFarmers(getFarmersList());
+      setCustomers(getCustomersList());
+    } catch {
+      // Local fallback already active
+    }
+  };
+
+  const refreshPriceRanges = () => {
+    setPriceRanges(getAdminPriceRanges());
   };
 
   useEffect(() => {
     refreshUsers();
+    refreshPriceRanges();
+
+    const handlePriceUpdate = () => {
+      refreshPriceRanges();
+    };
+
+    window.addEventListener('farm2door_price_ranges_updated', handlePriceUpdate);
+    return () => {
+      window.removeEventListener('farm2door_price_ranges_updated', handlePriceUpdate);
+    };
   }, []);
 
   // Show transient toast
@@ -154,6 +204,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Price Range handlers
+  const handleSavePriceRange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRangeFormError(null);
+
+    if (!productNameInput.trim()) {
+      setRangeFormError('Please enter a product or crop name.');
+      return;
+    }
+
+    const min = Number(minPriceInput);
+    const max = Number(maxPriceInput);
+
+    if (minPriceInput === '' || isNaN(min) || min <= 0) {
+      setRangeFormError('Minimum price must be a valid number greater than 0.');
+      return;
+    }
+
+    if (maxPriceInput === '' || isNaN(max) || max <= 0) {
+      setRangeFormError('Maximum price must be a valid number greater than 0.');
+      return;
+    }
+
+    if (max < min) {
+      setRangeFormError('Maximum price cannot be less than Minimum price.');
+      return;
+    }
+
+    const saved = saveAdminPriceRange({
+      id: editingRangeId || undefined,
+      productName: productNameInput.trim(),
+      category: categoryInput,
+      minPrice: min,
+      maxPrice: max,
+      unit: unitInput,
+      updatedAt: 'Today',
+      updatedBy: `Admin (${currentUser.fullName || 'naqi'})`,
+    });
+
+    showToast(`Price range for "${saved.productName}" saved: ₹${saved.minPrice}–₹${saved.maxPrice}/${saved.unit}`, 'success');
+
+    // Reset form
+    setEditingRangeId(null);
+    setProductNameInput('');
+    setMinPriceInput('');
+    setMaxPriceInput('');
+    setUnitInput('kg');
+    setCategoryInput('Vegetables');
+    refreshPriceRanges();
+  };
+
+  const handleEditRange = (range: AdminProductPriceRange) => {
+    setEditingRangeId(range.id);
+    setProductNameInput(range.productName);
+    setCategoryInput((range.category as ProductCategory) || 'Vegetables');
+    setMinPriceInput(range.minPrice);
+    setMaxPriceInput(range.maxPrice);
+    setUnitInput((range.unit as QuantityUnit) || 'kg');
+    setRangeFormError(null);
+  };
+
+  const handleCancelEditRange = () => {
+    setEditingRangeId(null);
+    setProductNameInput('');
+    setMinPriceInput('');
+    setMaxPriceInput('');
+    setUnitInput('kg');
+    setCategoryInput('Vegetables');
+    setRangeFormError(null);
+  };
+
+  const handleDeleteRange = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to remove the price range control for "${name}"? Farmers will not be able to list this product until a new range is set.`)) {
+      deleteAdminPriceRange(id);
+      showToast(`Price range control removed for "${name}".`, 'info');
+      if (editingRangeId === id) {
+        handleCancelEditRange();
+      }
+      refreshPriceRanges();
+    }
+  };
+
+  // Filtered price ranges
+  const filteredPriceRanges = priceRanges.filter((r) => {
+    if (priceCategoryFilter !== 'all' && r.category !== priceCategoryFilter) {
+      return false;
+    }
+    if (priceSearchQuery.trim()) {
+      const q = priceSearchQuery.toLowerCase();
+      return r.productName.toLowerCase().includes(q) || (r.category && r.category.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
   // Counts
   const pendingCount = farmers.filter((f) => f.approvalStatus === 'pending').length;
   const approvedCount = farmers.filter((f) => f.approvalStatus === 'approved').length;
@@ -213,12 +357,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black tracking-tight font-display text-white">
                   Farm2Door AI Admin
                 </h1>
                 <span className="px-2 py-0.5 text-2xs font-black uppercase tracking-wider rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                   Control Center
+                </span>
+                <span 
+                  id="admin-firebase-badge"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs font-bold rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40"
+                  title={`Connected to Cloud Firestore: ${FIREBASE_PROJECT_ID}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <Database className="w-3 h-3 text-emerald-400" />
+                  <span>Cloud Firestore Connected</span>
                 </span>
               </div>
               <p className="text-xs text-stone-400 font-medium">
@@ -272,7 +425,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
         {/* KPI Summary Cards */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-5 mb-8">
           
           {/* Card 1: Pending Approvals */}
           <div 
@@ -388,6 +541,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </p>
           </div>
 
+          {/* Card 5: Product Price Management */}
+          <div 
+            id="admin-card-price-controls"
+            onClick={() => { setActiveTab('price_management'); }}
+            className={`p-5 rounded-3xl border transition-all cursor-pointer ${
+              activeTab === 'price_management'
+                ? 'bg-emerald-50 border-emerald-400 shadow-md ring-2 ring-emerald-400/20'
+                : 'bg-white border-stone-200 hover:border-emerald-300 hover:shadow-sm'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                Price Controls
+              </span>
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <Tag className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-stone-900 font-display">
+                {priceRanges.length}
+              </span>
+              <span className="text-xs font-medium text-emerald-700">crops regulated</span>
+            </div>
+            <p className="text-2xs text-stone-500 mt-2">
+              Min/Max selling ranges enforced on farmers
+            </p>
+          </div>
+
         </section>
 
         {/* Workflow Guidance & Demo Testing Bar */}
@@ -425,7 +607,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           
           {/* Tab Selection */}
-          <div className="inline-flex p-1.5 rounded-2xl bg-stone-200/80 border border-stone-300/80">
+          <div className="inline-flex p-1.5 rounded-2xl bg-stone-200/80 border border-stone-300/80 flex-wrap gap-1">
             <button
               id="admin-tab-farmers"
               onClick={() => setActiveTab('farmers')}
@@ -456,6 +638,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Customers ({customers.length})</span>
             </button>
+
+            <button
+              id="admin-tab-price-management"
+              onClick={() => setActiveTab('price_management')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'price_management'
+                  ? 'bg-white text-stone-900 shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Tag className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Product Price Management ({priceRanges.length})</span>
+            </button>
           </div>
 
           {/* Search bar & status filter (when on Farmers tab) */}
@@ -478,14 +673,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* Category filter for Price Management tab */}
+            {activeTab === 'price_management' && (
+              <div className="inline-flex p-1 rounded-xl bg-white border border-stone-200 text-xs overflow-x-auto max-w-full">
+                {['all', 'Vegetables', 'Fruits', 'Grains', 'Pulses', 'Spices', 'Dairy'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setPriceCategoryFilter(cat)}
+                    className={`px-3 py-1.5 rounded-lg font-bold capitalize transition-colors cursor-pointer whitespace-nowrap ${
+                      priceCategoryFilter === cat
+                        ? 'bg-stone-900 text-white'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    {cat === 'all' ? 'All Crops' : cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeTab === 'farmers' ? "Search farmer name, phone, FPO..." : "Search customer..."}
+                value={activeTab === 'price_management' ? priceSearchQuery : searchQuery}
+                onChange={(e) => {
+                  if (activeTab === 'price_management') {
+                    setPriceSearchQuery(e.target.value);
+                  } else {
+                    setSearchQuery(e.target.value);
+                  }
+                }}
+                placeholder={
+                  activeTab === 'farmers' 
+                    ? "Search farmer name, phone, FPO..." 
+                    : activeTab === 'price_management'
+                    ? "Search crop or product..."
+                    : "Search customer..."
+                }
                 className="pl-9 pr-3.5 py-2 text-xs rounded-xl bg-white border border-stone-200 focus:outline-hidden focus:border-stone-900 w-56 sm:w-64"
               />
             </div>
@@ -725,6 +951,355 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* TAB 3: PRODUCT PRICE MANAGEMENT */}
+        {activeTab === 'price_management' && (
+          <div className="space-y-6">
+            
+            {/* Context & Protocol Banner */}
+            <div className="bg-emerald-900 text-white rounded-3xl p-6 sm:p-7 shadow-md relative overflow-hidden border border-emerald-800">
+              <div className="relative z-10 max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-800/80 text-emerald-200 text-xs font-bold mb-3 border border-emerald-700">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Central Selling-Price Control Policy</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black font-display text-white">
+                  Product Price Management
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-100/90 mt-2 leading-relaxed">
+                  As Administrator, define the permitted <strong>Minimum Price</strong> and <strong>Maximum Price</strong> per unit for each agricultural commodity. 
+                  When farmers list or edit products in their dashboard, their selling price is strictly validated against these values. Listing is disabled if no price range has been established.
+                </p>
+              </div>
+            </div>
+
+            {/* Price Range Configuration Form */}
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-7">
+              <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    {editingRangeId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-stone-900 font-display">
+                      {editingRangeId ? `Edit Price Range for "${productNameInput}"` : 'Configure New Crop Price Range'}
+                    </h4>
+                    <p className="text-xs text-stone-500">
+                      {editingRangeId 
+                        ? 'Update the allowed price boundaries for this agricultural crop.'
+                        : 'Define the allowed selling price bounds that farmers will see and abide by.'}
+                    </p>
+                  </div>
+                </div>
+
+                {editingRangeId && (
+                  <button
+                    onClick={handleCancelEditRange}
+                    className="px-3.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Cancel Editing
+                  </button>
+                )}
+              </div>
+
+              {rangeFormError && (
+                <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{rangeFormError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSavePriceRange} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  
+                  {/* Product / Crop Name */}
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                      Crop / Product Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={productNameInput}
+                      onChange={(e) => setProductNameInput(e.target.value)}
+                      placeholder="e.g. Tomato, Onion, Wheat, Mango, Ghee..."
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                    />
+                    {/* Quick Suggestions Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-2xs text-stone-400 font-bold">Quick presets:</span>
+                      {['Tomato', 'Onion', 'Potato', 'Rice', 'Wheat', 'Mango', 'Chilli', 'Turmeric'].map((crop) => (
+                        <button
+                          key={crop}
+                          type="button"
+                          onClick={() => {
+                            setProductNameInput(crop);
+                            const existing = priceRanges.find((r) => r.productName.toLowerCase() === crop.toLowerCase());
+                            if (existing) {
+                              setEditingRangeId(existing.id);
+                              setMinPriceInput(existing.minPrice);
+                              setMaxPriceInput(existing.maxPrice);
+                              setUnitInput(existing.unit as QuantityUnit);
+                              setCategoryInput(existing.category as ProductCategory || 'Vegetables');
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-2xs font-bold transition-colors cursor-pointer"
+                        >
+                          {crop}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                      Category *
+                    </label>
+                    <select
+                      value={categoryInput}
+                      onChange={(e) => setCategoryInput(e.target.value as ProductCategory)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white cursor-pointer"
+                    >
+                      <option value="Vegetables">Vegetables</option>
+                      <option value="Fruits">Fruits</option>
+                      <option value="Grains">Grains</option>
+                      <option value="Pulses">Pulses</option>
+                      <option value="Spices">Spices</option>
+                      <option value="Dairy">Dairy</option>
+                      <option value="Organic">Organic</option>
+                    </select>
+                  </div>
+
+                  {/* Unit */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                      Pricing Unit *
+                    </label>
+                    <select
+                      value={unitInput}
+                      onChange={(e) => setUnitInput(e.target.value as QuantityUnit)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white cursor-pointer"
+                    >
+                      <option value="kg">kg (Kilogram)</option>
+                      <option value="quintal">Quintal (100 kg)</option>
+                      <option value="ton">Metric Ton (1,000 kg)</option>
+                      <option value="bunch">Bunch</option>
+                      <option value="piece">Piece / Unit</option>
+                      <option value="litre">Litre</option>
+                    </select>
+                  </div>
+
+                  {/* Actions / Submit Button */}
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      id="admin-save-price-range-btn"
+                      className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer h-[42px]"
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>{editingRangeId ? 'Update Range' : 'Save Price Range'}</span>
+                    </button>
+                  </div>
+
+                </div>
+
+                {/* Price inputs & live preview spread */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-stone-100">
+                  
+                  {/* Minimum Price */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                      Minimum Price (₹ per {unitInput}) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-stone-500">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        value={minPriceInput}
+                        onChange={(e) => setMinPriceInput(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="e.g. 20"
+                        required
+                        className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                    <p className="text-2xs text-stone-500 mt-1">Floor price: Farmers cannot sell below this.</p>
+                  </div>
+
+                  {/* Maximum Price */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                      Maximum Price (₹ per {unitInput}) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-stone-500">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        value={maxPriceInput}
+                        onChange={(e) => setMaxPriceInput(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="e.g. 35"
+                        required
+                        className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                    <p className="text-2xs text-stone-500 mt-1">Ceiling price: Protects consumers and fair trade.</p>
+                  </div>
+
+                  {/* Range Spread Live Indicator */}
+                  <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200/90 flex flex-col justify-center">
+                    <span className="text-2xs font-bold uppercase tracking-wider text-stone-500">
+                      Permitted Farmer Selling Range
+                    </span>
+                    <div className="mt-1 flex items-baseline gap-1.5">
+                      <span className="text-lg font-black text-emerald-900 font-display">
+                        {minPriceInput !== '' && maxPriceInput !== ''
+                          ? `₹${minPriceInput} – ₹${maxPriceInput}`
+                          : '₹ -- – ₹ --'}
+                      </span>
+                      <span className="text-xs font-bold text-stone-600">/ {unitInput}</span>
+                    </div>
+                    <span className="text-2xs text-stone-500 mt-0.5">
+                      {minPriceInput !== '' && maxPriceInput !== '' && Number(maxPriceInput) >= Number(minPriceInput)
+                        ? `Spread: ₹${(Number(maxPriceInput) - Number(minPriceInput)).toFixed(2)} (${(((Number(maxPriceInput) - Number(minPriceInput)) / (Number(minPriceInput) || 1)) * 100).toFixed(0)}% flexibility)`
+                        : 'Enter valid min and max prices'}
+                    </span>
+                  </div>
+
+                </div>
+              </form>
+            </div>
+
+            {/* Configured Price Ranges Table */}
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-stone-900 font-display flex items-center gap-2">
+                    <span>Active Product Price Controls</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold">
+                      {filteredPriceRanges.length} of {priceRanges.length} configured
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Farmer listings outside these approved bounds are immediately blocked by the validation engine.
+                  </p>
+                </div>
+              </div>
+
+              {filteredPriceRanges.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="w-14 h-14 rounded-3xl bg-stone-100 text-stone-400 mx-auto flex items-center justify-center mb-3">
+                    <Tag className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-bold text-stone-800">No price ranges found</h4>
+                  <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                    {priceSearchQuery ? 'No crops matched your search filters.' : 'Use the form above to configure allowed selling price ranges for farmers.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50/80 border-b border-stone-200 text-2xs uppercase tracking-wider font-extrabold text-stone-500">
+                        <th className="py-3 px-4 sm:px-6">Agricultural Crop / Product</th>
+                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4">Min Price (Floor)</th>
+                        <th className="py-3 px-4">Max Price (Ceiling)</th>
+                        <th className="py-3 px-4">Allowed Selling Range</th>
+                        <th className="py-3 px-4">Unit</th>
+                        <th className="py-3 px-4">Last Updated</th>
+                        <th className="py-3 px-4 sm:px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 text-xs">
+                      {filteredPriceRanges.map((range) => {
+                        const isEditing = editingRangeId === range.id;
+                        return (
+                          <tr 
+                            key={range.id}
+                            className={`hover:bg-stone-50/80 transition-colors ${
+                              isEditing ? 'bg-amber-50/50 ring-1 ring-amber-300' : ''
+                            }`}
+                          >
+                            <td className="py-4 px-4 sm:px-6 font-bold text-stone-900">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold text-sm">
+                                  🌾
+                                </div>
+                                <div>
+                                  <span className="text-sm font-bold text-stone-900">{range.productName}</span>
+                                  <span className="block text-2xs text-stone-400 font-mono">ID: {range.id}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                                {range.category || 'Agricultural'}
+                              </span>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                                ₹{range.minPrice.toFixed(2)}
+                              </span>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <span className="font-extrabold text-purple-800 bg-purple-50 px-2 py-1 rounded-lg border border-purple-200">
+                                ₹{range.maxPrice.toFixed(2)}
+                              </span>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-stone-100 font-extrabold text-stone-900 border border-stone-200">
+                                <span>₹{range.minPrice} – ₹{range.maxPrice}</span>
+                                <span className="text-stone-500 font-medium">/ {range.unit}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4 font-bold text-stone-600 uppercase text-2xs">
+                              {range.unit}
+                            </td>
+
+                            <td className="py-4 px-4 text-stone-500">
+                              <div>{range.updatedAt || 'Recently'}</div>
+                              <div className="text-2xs text-stone-400">{range.updatedBy || 'Admin'}</div>
+                            </td>
+
+                            <td className="py-4 px-4 sm:px-6 text-right">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleEditRange(range)}
+                                  className="p-1.5 rounded-lg text-stone-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                  title="Edit Price Range"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRange(range.id, range.productName)}
+                                  className="p-1.5 rounded-lg text-stone-400 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Remove Price Control"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+            </div>
+
           </div>
         )}
 

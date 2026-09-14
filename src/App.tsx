@@ -26,9 +26,10 @@ import { CartDrawer } from './components/CartDrawer';
 import { UserProfileModal } from './components/UserProfileModal';
 import { stopSpeech } from './utils/speech';
 import { safeStorage } from './utils/safeStorage';
+import { initFirestoreMarketplaceSync } from './utils/marketplaceStore';
+import { initFirestoreUsersSync } from './data/authService';
 
 export default function App() {
-  console.log('[BOOT] App component function running');
   // Website opens at Landing Page with top Navbar
   const [currentView, setCurrentView] = useState<AppView>('role_selection');
   const [selectedRoleForAuth, setSelectedRoleForAuth] = useState<UserRole>('farmer');
@@ -66,6 +67,10 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to load user session from storage:', e);
     }
+
+    // Initialize Cloud Firestore synchronization in the background
+    initFirestoreMarketplaceSync().catch((e) => console.warn('[Firestore] Marketplace sync failed:', e));
+    initFirestoreUsersSync().catch((e) => console.warn('[Firestore] Users sync failed:', e));
   }, []);
 
   // Consumer Cart
@@ -190,9 +195,6 @@ export default function App() {
   // Check whether top navigation bar should be visible:
   // Hide during standalone role selection screen or auth screen
   const isAuthFlow = currentView === 'role_selection' || currentView === 'auth';
-
-  console.log('[BOOT] App rendering view:', currentView, 'currentUser:', currentUser ? currentUser.role : 'none');
-  console.log('[BOOT] App returning JSX layout');
 
   return (
     <div id="app-root-wrapper" className="min-h-screen min-h-[100dvh] w-full bg-stone-50 text-stone-900 flex flex-col font-sans">
