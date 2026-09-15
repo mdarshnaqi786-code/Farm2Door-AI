@@ -22,6 +22,7 @@ import { BulkBuyerDashboard } from './components/BulkBuyerDashboard';
 import { MarketIntelligence } from './components/MarketIntelligence';
 import { LogisticsPage } from './components/LogisticsPage';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DriverDashboard } from './components/DriverDashboard';
 import { CartDrawer } from './components/CartDrawer';
 import { UserProfileModal } from './components/UserProfileModal';
 import { stopSpeech } from './utils/speech';
@@ -62,6 +63,8 @@ export default function App() {
           setCurrentView('admin_dashboard');
         } else if (user.role === 'bulk_buyer') {
           setCurrentView('bulk_home');
+        } else if (user.role === 'driver') {
+          setCurrentView('driver_dashboard');
         }
       }
     } catch (e) {
@@ -140,6 +143,8 @@ export default function App() {
       setCurrentView('admin_dashboard');
     } else if (account.role === 'bulk_buyer') {
       setCurrentView('bulk_home');
+    } else if (account.role === 'driver') {
+      setCurrentView('driver_dashboard');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -238,7 +243,7 @@ export default function App() {
           <LandingPage
             onSelectRole={(role) => {
               handleStopSpeech();
-              if (role === 'farmer' || role === 'consumer' || role === 'bulk_buyer' || role === 'admin') {
+              if (role === 'farmer' || role === 'consumer' || role === 'bulk_buyer' || role === 'admin' || role === 'driver') {
                 setSelectedRoleForAuth(role as UserRole);
                 setCurrentView('auth');
               } else {
@@ -343,6 +348,19 @@ export default function App() {
           <AdminDashboard
             currentUser={currentUser}
             onLogout={handleLogout}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* DRIVER POST-LOGIN VIEWS                                                   */}
+        {/* ========================================================================= */}
+        {currentUser?.role === 'driver' && (currentView === 'driver_dashboard' || currentView === 'driver') && (
+          <DriverDashboard
+            currentUser={currentUser}
+            language={language}
+            onLogout={handleLogout}
+            onStartSpeech={handleStartSpeech}
+            onEndSpeech={handleEndSpeech}
           />
         )}
 

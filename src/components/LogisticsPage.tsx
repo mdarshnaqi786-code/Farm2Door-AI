@@ -35,6 +35,7 @@ import {
 import { LanguageCode, OrderStatus, UserAccount } from '../types';
 import { speakText } from '../utils/speech';
 import { MOCK_VEHICLES } from '../data/mockData';
+import { getDriversList } from '../data/authService';
 import { getCustomerOrders, updateOrderStatus } from '../utils/marketplaceStore';
 import { safeStorage } from '../utils/safeStorage';
 import { 
@@ -85,8 +86,53 @@ export const LogisticsPage: React.FC<LogisticsPageProps> = ({
     return PROTOTYPE_DEMO_CUSTOMERS;
   });
 
+  // Helper to load vehicles from registered drivers + fleet
+  const loadFleetVehicles = useCallback(() => {
+    try {
+      const drivers = getDriversList();
+      const registeredVehicles = drivers.map((d, index) => ({
+        id: d.id,
+        type: d.vehicleType || 'Eco Cargo EV',
+        numberPlate: d.vehicleNumber || `KA-51-EV-${2000 + index}`,
+        driver: `${d.fullName} (${d.contact})`,
+        capacityKg: 1500,
+        currentLoadKg: 0,
+        batteryOrFuel: '92% Battery (140 km range)',
+        status: d.driverStatus === 'busy' ? 'Active En Route' : d.driverStatus === 'offline' ? 'Standby / Yard' : 'Available at Hub',
+        isElectric: true,
+      }));
+
+      const regIds = new Set(registeredVehicles.map((v) => v.id));
+      const remainingMock = MOCK_VEHICLES.filter((v) => !regIds.has(v.id));
+      return [...registeredVehicles, ...remainingMock];
+    } catch {
+      return MOCK_VEHICLES;
+    }
+  }, []);
+
   // 3. Driver & Fleet State
-  const [vehicles, setVehicles] = useState(MOCK_VEHICLES);
+  const [vehicles, setVehicles] = useState(() => {
+    try {
+      const drivers = getDriversList();
+      const registeredVehicles = drivers.map((d, index) => ({
+        id: d.id,
+        type: d.vehicleType || 'Eco Cargo EV',
+        numberPlate: d.vehicleNumber || `KA-51-EV-${2000 + index}`,
+        driver: `${d.fullName} (${d.contact})`,
+        capacityKg: 1500,
+        currentLoadKg: 0,
+        batteryOrFuel: '92% Battery (140 km range)',
+        status: d.driverStatus === 'busy' ? 'Active En Route' : d.driverStatus === 'offline' ? 'Standby / Yard' : 'Available at Hub',
+        isElectric: true,
+      }));
+
+      const regIds = new Set(registeredVehicles.map((v) => v.id));
+      const remainingMock = MOCK_VEHICLES.filter((v) => !regIds.has(v.id));
+      return [...registeredVehicles, ...remainingMock];
+    } catch {
+      return MOCK_VEHICLES;
+    }
+  });
   const [assignedDriverId, setAssignedDriverId] = useState<string | null>(() => {
     return safeStorage.getItem('farm2door_assigned_driver_id') || null;
   });
@@ -154,9 +200,19 @@ export const LogisticsPage: React.FC<LogisticsPageProps> = ({
 
   useEffect(() => {
     syncWithMarketplace();
+    setVehicles(loadFleetVehicles());
 
     const handleOrdersUpdated = () => {
       syncWithMarketplace();
+      setVehicles(loadFleetVehicles());
+      const savedStatus = safeStorage.getItem('farm2door_driver_dispatch_status');
+      if (savedStatus) {
+        setDriverDispatchStatus(savedStatus as any);
+      }
+      const savedDriver = safeStorage.getItem('farm2door_assigned_driver_id');
+      if (savedDriver) {
+        setAssignedDriverId(savedDriver);
+      }
     };
 
     window.addEventListener('farm2door_orders_updated', handleOrdersUpdated);
@@ -166,7 +222,7 @@ export const LogisticsPage: React.FC<LogisticsPageProps> = ({
       window.removeEventListener('farm2door_orders_updated', handleOrdersUpdated);
       window.removeEventListener('storage', handleOrdersUpdated);
     };
-  }, [syncWithMarketplace]);
+  }, [syncWithMarketplace, loadFleetVehicles]);
 
   // Persist customers whenever modified
   useEffect(() => {

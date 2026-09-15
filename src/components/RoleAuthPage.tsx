@@ -21,7 +21,8 @@ import {
   XCircle,
   MapPin,
   ShieldAlert,
-  Wheat
+  Wheat,
+  Truck
 } from 'lucide-react';
 import { UserRole, UserAccount, SupportedLanguage, ApprovalStatus } from '../types';
 import { INDIAN_LANGUAGES } from '../data/languages';
@@ -63,6 +64,13 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
   const [signupFPO, setSignupFPO] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupLanguage, setSignupLanguage] = useState<string>('hi');
+
+  // Driver specific signup state
+  const [signupMobile, setSignupMobile] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupVehicleType, setSignupVehicleType] = useState('Mahindra Zor Grand Electric');
+  const [signupVehicleNumber, setSignupVehicleNumber] = useState('');
+  const [signupLicenseNumber, setSignupLicenseNumber] = useState('');
   
   // Validation / Error / Modal states
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -120,6 +128,22 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
       demoFPO: '',
       demoLocation: 'Guntur, Andhra Pradesh',
       voicePrompt: 'Customer authentication portal. Sign up or log in to buy farm-fresh produce directly from verified farmers.',
+    },
+    driver: {
+      title: 'Driver / Delivery Partner',
+      subtitle: 'लॉजिस्टिक्स & डिलीवरी पार्टनर',
+      icon: '🚚',
+      badgeBg: 'bg-blue-100 text-blue-900 border-blue-300',
+      btnBg: 'bg-blue-700 hover:bg-blue-800 text-white',
+      accentColor: 'blue',
+      demoName: 'Sunil Kumar',
+      demoContact: '+91 98450 67890',
+      demoFPO: 'Farm2Door Rapid Fleet',
+      demoLocation: 'Vijayawada Dispatch Hub',
+      demoVehicleType: 'Mahindra Zor Grand Electric',
+      demoVehicleNumber: 'KA-51-EV-9012',
+      demoLicense: 'DL-0420190038491',
+      voicePrompt: 'Driver authentication portal. Sign up with your vehicle and driving license details, or log in to manage your assigned delivery routes.',
     },
     admin: {
       title: 'Admin',
@@ -209,6 +233,25 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
     }
   };
 
+  const handleFillDriverDemo = () => {
+    setErrorMessage(null);
+    setApprovalAlert(null);
+    if (authMode === 'login') {
+      setLoginIdentifier('+91 98450 67890');
+      setLoginPassword('123456');
+    } else {
+      setSignupName('Sunil Kumar');
+      setSignupMobile('+91 98450 67890');
+      setSignupEmail('sunil.kumar@farmdriver.in');
+      setSignupIdentifier('+91 98450 67890');
+      setSignupVehicleType('Mahindra Zor Grand Electric');
+      setSignupVehicleNumber('KA-51-EV-9012');
+      setSignupLicenseNumber('DL-0420190038491');
+      setSignupPassword('123456');
+      setSignupLanguage('en');
+    }
+  };
+
   // Handle Login submission
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,7 +259,11 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
     setApprovalAlert(null);
 
     if (!loginIdentifier.trim()) {
-      setErrorMessage('Please enter your mobile number or email.');
+      setErrorMessage(
+        activeRole === 'driver'
+          ? 'Please enter your registered mobile number or email.'
+          : 'Please enter your mobile number or email.'
+      );
       return;
     }
     if (!loginPassword) {
@@ -284,13 +331,34 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
       setErrorMessage('Please enter your Full Name.');
       return;
     }
-    if (!signupIdentifier.trim()) {
-      setErrorMessage('Please enter your Mobile Number or Email.');
+
+    const primaryContact = activeRole === 'driver'
+      ? (signupMobile.trim() || signupIdentifier.trim())
+      : signupIdentifier.trim();
+
+    if (!primaryContact) {
+      setErrorMessage(
+        activeRole === 'driver'
+          ? 'Please enter your Mobile Number.'
+          : 'Please enter your Mobile Number or Email.'
+      );
       return;
     }
+
     if (signupPassword.length < 4) {
       setErrorMessage('Password must be at least 4 characters long.');
       return;
+    }
+
+    if (activeRole === 'driver') {
+      if (!signupVehicleNumber.trim()) {
+        setErrorMessage('Please enter your Vehicle Number (e.g. KA-51-EV-9012).');
+        return;
+      }
+      if (!signupLicenseNumber.trim()) {
+        setErrorMessage('Please enter your Driving License Number (e.g. DL-0420190038491).');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -299,12 +367,16 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
       setIsLoading(false);
       const res = registerUser({
         fullName: signupName.trim(),
-        contact: signupIdentifier.trim(),
+        contact: primaryContact,
+        email: activeRole === 'driver' && signupEmail.trim() ? signupEmail.trim() : (primaryContact.includes('@') ? primaryContact : undefined),
         password: signupPassword,
         role: activeRole,
         language: signupLanguage,
         fpoOrOrgName: signupFPO.trim() || undefined,
-        location: signupLocation.trim() || undefined,
+        location: signupLocation.trim() || (activeRole === 'driver' ? 'Dispatch Hub' : undefined),
+        vehicleType: activeRole === 'driver' ? signupVehicleType : undefined,
+        vehicleNumber: activeRole === 'driver' ? signupVehicleNumber.trim() : undefined,
+        drivingLicenseNumber: activeRole === 'driver' ? signupLicenseNumber.trim() : undefined,
       });
 
       if (!res.success) {
@@ -320,7 +392,7 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
         return;
       }
 
-      // Customers can register and log in normally
+      // Customers and Drivers can register and log in normally
       if (res.account) {
         setCurrentUserSession(res.account);
         onAuthSuccess(res.account);
@@ -398,6 +470,23 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
             }`}
           >
             <span>🛒 Customer</span>
+          </button>
+
+          <button
+            id="auth-role-switch-driver"
+            type="button"
+            onClick={() => {
+              setActiveRole('driver');
+              setApprovalAlert(null);
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeRole === 'driver'
+                ? 'bg-blue-700 text-white shadow-xs font-extrabold'
+                : 'text-stone-700 hover:text-stone-900'
+            }`}
+          >
+            <span>🚚 Driver</span>
           </button>
 
           <button
@@ -558,6 +647,19 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
                     <span>Demo Customer</span>
                   </button>
                 )}
+
+                {activeRole === 'driver' && (
+                  <button
+                    id="driver-demo-fill-btn"
+                    type="button"
+                    onClick={handleFillDriverDemo}
+                    className="text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Pre-fill demo driver credentials"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Demo Driver (Sunil Kumar)</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -677,6 +779,16 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
                   </div>
                 )}
 
+                {/* Driver info hint */}
+                {activeRole === 'driver' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 flex items-start gap-2">
+                    <Truck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Driver Delivery Hub:</span> Log in with your registered mobile number or email and password to access your assigned delivery runs and update live package statuses.
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
                     {activeRole === 'admin' ? 'Admin Email / Username' : 'Mobile Number or Email'}
@@ -696,6 +808,8 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
                           ? 'mdarshnaqi786@gmail.com'
                           : activeRole === 'farmer'
                           ? 'e.g. +91 98765 43210 or ramesh.patil@kisan.in'
+                          : activeRole === 'driver'
+                          ? 'e.g. +91 98450 67890 or driver@farm2door.in'
                           : 'e.g. +91 98765 43210 or user@example.com'
                       }
                       className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
@@ -838,6 +952,21 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
                       </div>
                     )}
 
+                    {/* Driver Notice Banner */}
+                    {activeRole === 'driver' && (
+                      <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-950 flex items-start gap-2.5">
+                        <Truck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                        <div className="leading-relaxed">
+                          <span className="font-bold block text-blue-900">
+                            Driver Registration & Vehicle Enrollment:
+                          </span>
+                          <span>
+                            Register your commercial vehicle and driver license to deliver fresh produce directly from farms to customers and bulk buyers.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Full Name */}
                     <div>
                       <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
@@ -853,32 +982,146 @@ export const RoleAuthPage: React.FC<RoleAuthPageProps> = ({
                           required
                           value={signupName}
                           onChange={(e) => setSignupName(e.target.value)}
-                          placeholder={activeRole === 'farmer' ? 'e.g. Ramesh Patil' : 'e.g. Priya Sharma'}
+                          placeholder={
+                            activeRole === 'farmer'
+                              ? 'e.g. Ramesh Patil'
+                              : activeRole === 'driver'
+                              ? 'e.g. Sunil Kumar'
+                              : 'e.g. Priya Sharma'
+                          }
                           className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
                         />
                       </div>
                     </div>
 
-                    {/* Mobile Number or Email */}
-                    <div>
-                      <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
-                        Mobile Number or Email
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
-                          <Mail className="w-4 h-4" />
+                    {/* Driver-specific separate Mobile & Email inputs */}
+                    {activeRole === 'driver' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                            Mobile Number
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                              <Phone className="w-4 h-4" />
+                            </div>
+                            <input
+                              id="signup-driver-mobile-input"
+                              type="tel"
+                              required
+                              value={signupMobile}
+                              onChange={(e) => {
+                                setSignupMobile(e.target.value);
+                                setSignupIdentifier(e.target.value);
+                              }}
+                              placeholder="e.g. +91 98450 67890"
+                              className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                            />
+                          </div>
                         </div>
-                        <input
-                          id="signup-identifier-input"
-                          type="text"
-                          required
-                          value={signupIdentifier}
-                          onChange={(e) => setSignupIdentifier(e.target.value)}
-                          placeholder="e.g. +91 98765 43210 or user@example.com"
-                          className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
-                        />
+
+                        <div>
+                          <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                            Email Address
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <input
+                              id="signup-driver-email-input"
+                              type="email"
+                              value={signupEmail}
+                              onChange={(e) => setSignupEmail(e.target.value)}
+                              placeholder="e.g. sunil.kumar@farmdriver.in"
+                              className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Mobile Number or Email for Farmer / Customer */
+                      <div>
+                        <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                          Mobile Number or Email
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                            <Mail className="w-4 h-4" />
+                          </div>
+                          <input
+                            id="signup-identifier-input"
+                            type="text"
+                            required
+                            value={signupIdentifier}
+                            onChange={(e) => setSignupIdentifier(e.target.value)}
+                            placeholder="e.g. +91 98765 43210 or user@example.com"
+                            className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Driver-specific Vehicle and License Fields */}
+                    {activeRole === 'driver' && (
+                      <div className="space-y-4 pt-1">
+                        <div>
+                          <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                            Vehicle Type
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                              <Truck className="w-4 h-4" />
+                            </div>
+                            <select
+                              id="signup-driver-vehicle-type-select"
+                              value={signupVehicleType}
+                              onChange={(e) => setSignupVehicleType(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                            >
+                              <option value="Mini Truck (Tata Ace 1.5T)">Mini Truck (Tata Ace 1.5T)</option>
+                              <option value="Electric Van (Mahindra Zor Grand)">Electric Van (Mahindra Zor Grand)</option>
+                              <option value="Pickup Truck (Bolero Maxi 2.5T)">Pickup Truck (Bolero Maxi 2.5T)</option>
+                              <option value="Three Wheeler (Piaggio Ape Cargo)">Three Wheeler (Piaggio Ape Cargo)</option>
+                              <option value="Refrigerated Van (Cold Chain)">Refrigerated Van (Cold Chain)</option>
+                              <option value="Medium Commercial Vehicle (Eicher Pro)">Medium Commercial Vehicle (Eicher Pro)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                              Vehicle Registration Number
+                            </label>
+                            <input
+                              id="signup-driver-vehicle-number-input"
+                              type="text"
+                              required
+                              value={signupVehicleNumber}
+                              onChange={(e) => setSignupVehicleNumber(e.target.value.toUpperCase())}
+                              placeholder="e.g. KA-51-EV-9012"
+                              className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm font-mono uppercase text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+                              Driving License Number
+                            </label>
+                            <input
+                              id="signup-driver-license-input"
+                              type="text"
+                              required
+                              value={signupLicenseNumber}
+                              onChange={(e) => setSignupLicenseNumber(e.target.value.toUpperCase())}
+                              placeholder="e.g. DL-0420190038491"
+                              className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm font-mono uppercase text-stone-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-stone-900"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Farmer-specific location & FPO fields */}
                     {activeRole === 'farmer' && (

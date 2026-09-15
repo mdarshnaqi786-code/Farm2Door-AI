@@ -1,12 +1,15 @@
-export type UserRole = 'farmer' | 'consumer' | 'admin' | 'bulk_buyer';
+export type UserRole = 'farmer' | 'consumer' | 'admin' | 'bulk_buyer' | 'driver';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type DriverDeliveryStatus = 'Assigned' | 'Picked Up' | 'Out for Delivery' | 'Delivered';
 
 export type AppView = 
   | 'landing'
   | 'role_selection'
   | 'auth'
   | 'admin_dashboard'
+  | 'driver_dashboard'
   // Farmer views
   | 'farmer_home'
   | 'farmer_products'
@@ -30,6 +33,7 @@ export type AppView =
   | 'consumer' 
   | 'bulk_buyer' 
   | 'admin'
+  | 'driver'
   | 'market_intel' 
   | 'logistics';
 
@@ -55,6 +59,11 @@ export interface UserAccount {
   language: string;
   fpoOrOrgName?: string;
   location?: string;
+  // Driver specific fields
+  vehicleType?: string;
+  vehicleNumber?: string;
+  drivingLicenseNumber?: string;
+  driverStatus?: 'available' | 'busy' | 'offline' | 'on_duty' | 'off_duty';
   approvalStatus?: ApprovalStatus;
   createdAt: string;
 }
@@ -95,7 +104,16 @@ export type ProductCategory =
 
 export type QuantityUnit = 'kg' | 'quintal' | 'ton';
 
-export type OrderStatus = 'Pending' | 'Accepted' | 'Ready for Delivery' | 'In Transit' | 'Delivered' | 'Rejected';
+export type OrderStatus = 
+  | 'Pending' 
+  | 'Accepted' 
+  | 'Ready for Delivery' 
+  | 'In Transit' 
+  | 'Delivered' 
+  | 'Rejected'
+  | 'Assigned'
+  | 'Picked Up'
+  | 'Out for Delivery';
 
 export interface FarmerProduct {
   id: string;

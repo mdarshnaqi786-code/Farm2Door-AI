@@ -103,6 +103,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           { id: 'bulk_market_intel' as AppView, label: t('nav.marketIntel', language), icon: TrendingUp },
           { id: 'bulk_logistics' as AppView, label: t('nav.logistics', language), icon: Truck },
         ];
+      case 'driver':
+        return [
+          { id: 'driver_dashboard' as AppView, label: language === 'hi' ? 'ड्राइवर डैशबोर्ड' : language === 'te' ? 'డ్రైవర్ డ్యాష్‌బోర్డ్' : 'Driver Dashboard', icon: Truck },
+        ];
       default:
         return [];
     }
@@ -118,6 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (id === 'bulk_orders' && currentView === 'bulk_buyer') return true;
     if (id.includes('market_intel') && currentView === 'market_intel') return true;
     if (id.includes('logistics') && currentView === 'logistics') return true;
+    if (id === 'driver_dashboard' && currentView === 'driver') return true;
     return false;
   };
 
@@ -154,6 +159,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           label: language === 'hi' ? 'थोक खरीदार' : language === 'te' ? 'బల్క్ కొనుగోలుదారు' : 'Bulk Buyer', 
           icon: '🏢', 
           bg: 'bg-teal-100 text-teal-900 border-teal-300' 
+        };
+      case 'driver':
+        return {
+          label: language === 'hi' ? 'ड्राइवर / वाहन' : language === 'te' ? 'డ్రైవర్ / వాహనం' : 'Driver / Fleet',
+          icon: '🚚',
+          bg: 'bg-blue-100 text-blue-900 border-blue-300'
         };
       default:
         return {

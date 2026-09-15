@@ -6,7 +6,8 @@ import {
   ShoppingBag,
   Building2,
   Wheat,
-  ShieldCheck
+  ShieldCheck,
+  Truck
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { speakRoleDescription } from '../utils/speech';
@@ -29,7 +30,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-stone-50 py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto w-full">
+      <div className="max-w-7xl mx-auto w-full">
         
         {/* Header Section with Farm2Door AI Logo */}
         <div className="text-center max-w-2xl mx-auto">
@@ -55,7 +56,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
 
           {/* Short description */}
           <p className="mt-3 text-base sm:text-lg text-stone-600 font-medium">
-            Connecting farmers directly with buyers.
+            Connecting farmers directly with buyers and reliable delivery partners.
           </p>
 
           {/* Question */}
@@ -64,20 +65,20 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
           </p>
         </div>
 
-        {/* 3 Large Clean Role Cards: Farmer, Customer, Admin */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+        {/* Clean Role Cards: Farmer, Customer, Driver, Admin */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
           {/* Card 1: Farmer / FPO */}
           <div
             id="role-card-farmer"
             onClick={() => onSelectRole('farmer')}
-            className="group bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 hover:border-emerald-600 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+            className="group bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 hover:border-emerald-600 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer"
           >
             <div>
               {/* Header with Icon and Speaker Button */}
               <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
-                  <Wheat className="w-8 h-8 text-emerald-700" />
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
+                  <Wheat className="w-7 h-7 text-emerald-700" />
                 </div>
 
                 <button
@@ -91,15 +92,15 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
                   }
                   title="Hear description aloud"
                   aria-label="Hear Farmer role description aloud"
-                  className="w-11 h-11 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-600 hover:text-emerald-700 border border-stone-200 hover:border-emerald-200 flex items-center justify-center transition-all cursor-pointer"
+                  className="w-10 h-10 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-600 hover:text-emerald-700 border border-stone-200 hover:border-emerald-200 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <Volume2 className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Title */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 font-display">
+                <h2 className="text-lg sm:text-xl font-black text-stone-900 font-display">
                   Farmer / FPO
                 </h2>
                 <span className="text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
@@ -108,13 +109,13 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
               </div>
 
               {/* Short description */}
-              <p className="text-stone-600 text-sm sm:text-base font-medium mt-2 mb-6">
+              <p className="text-stone-600 text-xs sm:text-sm font-medium mt-2 mb-6">
                 Sell your agricultural products directly. (New accounts verified by Admin).
               </p>
             </div>
 
             {/* Action button */}
-            <div className="w-full py-3.5 px-4 rounded-xl bg-emerald-700 group-hover:bg-emerald-800 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
+            <div className="w-full py-3 px-4 rounded-xl bg-emerald-700 group-hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
               <span>Continue as Farmer</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -124,13 +125,13 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
           <div
             id="role-card-consumer"
             onClick={() => onSelectRole('consumer')}
-            className="group bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 hover:border-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+            className="group bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 hover:border-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer"
           >
             <div>
               {/* Header with Icon and Speaker Button */}
               <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
-                  <ShoppingBag className="w-8 h-8 text-amber-700" />
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
+                  <ShoppingBag className="w-7 h-7 text-amber-700" />
                 </div>
 
                 <button
@@ -144,15 +145,15 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
                   }
                   title="Hear description aloud"
                   aria-label="Hear Customer role description aloud"
-                  className="w-11 h-11 rounded-2xl bg-stone-50 hover:bg-amber-50 text-stone-600 hover:text-amber-700 border border-stone-200 hover:border-amber-200 flex items-center justify-center transition-all cursor-pointer"
+                  className="w-10 h-10 rounded-2xl bg-stone-50 hover:bg-amber-50 text-stone-600 hover:text-amber-700 border border-stone-200 hover:border-amber-200 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <Volume2 className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Title */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 font-display">
+                <h2 className="text-lg sm:text-xl font-black text-stone-900 font-display">
                   Customer
                 </h2>
                 <span className="text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
@@ -161,29 +162,82 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
               </div>
 
               {/* Short description */}
-              <p className="text-stone-600 text-sm sm:text-base font-medium mt-2 mb-6">
+              <p className="text-stone-600 text-xs sm:text-sm font-medium mt-2 mb-6">
                 Buy fresh produce directly from farmers. Register and login normally.
               </p>
             </div>
 
             {/* Action button */}
-            <div className="w-full py-3.5 px-4 rounded-xl bg-stone-900 group-hover:bg-stone-800 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
+            <div className="w-full py-3 px-4 rounded-xl bg-stone-900 group-hover:bg-stone-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
               <span>Continue as Customer</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
 
-          {/* Card 3: Admin */}
+          {/* Card 3: Driver */}
           <div
-            id="role-card-admin"
-            onClick={() => onSelectRole('admin')}
-            className="group bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 hover:border-purple-600 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer ring-1 ring-purple-100"
+            id="role-card-driver"
+            onClick={() => onSelectRole('driver')}
+            className="group bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 hover:border-blue-600 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer ring-1 ring-blue-100"
           >
             <div>
               {/* Header with Icon and Speaker Button */}
               <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
-                  <ShieldCheck className="w-8 h-8 text-purple-700" />
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
+                  <Truck className="w-7 h-7 text-blue-700" />
+                </div>
+
+                <button
+                  id="role-speaker-driver"
+                  onClick={(e) =>
+                    handleSpeakRole(
+                      e,
+                      'Driver and Logistics Partner',
+                      'Deliver fresh produce from farms to customers. Manage assigned routes and update delivery statuses.'
+                    )
+                  }
+                  title="Hear description aloud"
+                  aria-label="Hear Driver role description aloud"
+                  className="w-10 h-10 rounded-2xl bg-stone-50 hover:bg-blue-50 text-stone-600 hover:text-blue-700 border border-stone-200 hover:border-blue-200 flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <Volume2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Title */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-black text-stone-900 font-display">
+                  Driver
+                </h2>
+                <span className="text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                  Logistics
+                </span>
+              </div>
+
+              {/* Short description */}
+              <p className="text-stone-600 text-xs sm:text-sm font-medium mt-2 mb-6">
+                Deliver produce from farms to buyers. Manage routes & live delivery statuses.
+              </p>
+            </div>
+
+            {/* Action button */}
+            <div className="w-full py-3 px-4 rounded-xl bg-blue-700 group-hover:bg-blue-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
+              <span>Continue as Driver</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Card 4: Admin */}
+          <div
+            id="role-card-admin"
+            onClick={() => onSelectRole('admin')}
+            className="group bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 hover:border-purple-600 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer ring-1 ring-purple-100"
+          >
+            <div>
+              {/* Header with Icon and Speaker Button */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-7 h-7 text-purple-700" />
                 </div>
 
                 <button
@@ -197,15 +251,15 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
                   }
                   title="Hear description aloud"
                   aria-label="Hear Admin role description aloud"
-                  className="w-11 h-11 rounded-2xl bg-stone-50 hover:bg-purple-50 text-stone-600 hover:text-purple-700 border border-stone-200 hover:border-purple-200 flex items-center justify-center transition-all cursor-pointer"
+                  className="w-10 h-10 rounded-2xl bg-stone-50 hover:bg-purple-50 text-stone-600 hover:text-purple-700 border border-stone-200 hover:border-purple-200 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <Volume2 className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Title */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 font-display">
+                <h2 className="text-lg sm:text-xl font-black text-stone-900 font-display">
                   Admin
                 </h2>
                 <span className="text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
@@ -214,13 +268,13 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({
               </div>
 
               {/* Short description */}
-              <p className="text-stone-600 text-sm sm:text-base font-medium mt-2 mb-6">
-                Approve newly registered farmers and manage platform permissions.
+              <p className="text-stone-600 text-xs sm:text-sm font-medium mt-2 mb-6">
+                Approve newly registered farmers and manage platform governance.
               </p>
             </div>
 
             {/* Action button */}
-            <div className="w-full py-3.5 px-4 rounded-xl bg-purple-800 group-hover:bg-purple-900 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
+            <div className="w-full py-3 px-4 rounded-xl bg-purple-800 group-hover:bg-purple-900 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors">
               <span>Continue as Admin</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>

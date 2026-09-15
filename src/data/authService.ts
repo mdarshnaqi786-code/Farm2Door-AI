@@ -70,6 +70,22 @@ const SEED_USERS: UserAccount[] = [
     approvalStatus: 'approved',
     createdAt: '2026-03-05T12:00:00.000Z',
   },
+  {
+    id: 'usr-driver-sunil',
+    fullName: 'Sunil Kumar',
+    contact: '+91 98450 67890',
+    email: 'sunil.kumar@farmdriver.in',
+    password: '123456',
+    role: 'driver',
+    language: 'en',
+    location: 'Vijayawada Dispatch Hub',
+    vehicleType: 'Mahindra Zor Grand Electric',
+    vehicleNumber: 'KA-51-EV-9012',
+    drivingLicenseNumber: 'DL-0420190038491',
+    driverStatus: 'available',
+    approvalStatus: 'approved',
+    createdAt: '2026-03-01T08:00:00.000Z',
+  },
 ];
 
 const STORAGE_USERS_KEY = 'farm2door_registered_users';
@@ -190,13 +206,28 @@ export const registerUser = (details: {
   language: string;
   fpoOrOrgName?: string;
   location?: string;
+  vehicleType?: string;
+  vehicleNumber?: string;
+  drivingLicenseNumber?: string;
 }): {
   success: boolean;
   account?: UserAccount;
   error?: string;
   isPending?: boolean;
 } => {
-  const { fullName, contact, email, password, role, language, fpoOrOrgName, location } = details;
+  const { 
+    fullName, 
+    contact, 
+    email, 
+    password, 
+    role, 
+    language, 
+    fpoOrOrgName, 
+    location,
+    vehicleType,
+    vehicleNumber,
+    drivingLicenseNumber
+  } = details;
 
   // Rule: Admin cannot be freely created by users.
   if (role === 'admin') {
@@ -229,7 +260,7 @@ export const registerUser = (details: {
     };
   }
 
-  // Farmer starts as 'pending'. Customer & Bulk Buyer start as 'approved'.
+  // Farmer starts as 'pending'. Customer, Bulk Buyer & Driver start as 'approved'.
   const initialStatus: ApprovalStatus = role === 'farmer' ? 'pending' : 'approved';
 
   const newAccount: UserAccount = {
@@ -241,7 +272,11 @@ export const registerUser = (details: {
     role,
     language: language || (role === 'farmer' ? 'hi' : 'en'),
     fpoOrOrgName: fpoOrOrgName?.trim(),
-    location: location?.trim() || (role === 'farmer' ? 'Andhra Pradesh, India' : undefined),
+    location: location?.trim() || (role === 'farmer' ? 'Andhra Pradesh, India' : role === 'driver' ? 'Regional Logistics Hub' : undefined),
+    vehicleType: vehicleType?.trim(),
+    vehicleNumber: vehicleNumber?.trim(),
+    drivingLicenseNumber: drivingLicenseNumber?.trim(),
+    driverStatus: role === 'driver' ? 'available' : undefined,
     approvalStatus: initialStatus,
     createdAt: new Date().toISOString(),
   };
@@ -264,6 +299,7 @@ export const registerUser = (details: {
  * - Enforces admin credentials (mdarshnaqi786@gmail.com / 123456).
  * - Enforces farmer approval status (blocks pending and rejected farmers).
  * - Customers log in normally.
+ * - Drivers log in with their created credentials.
  */
 export const loginUser = (
   role: UserRole,
@@ -301,26 +337,34 @@ export const loginUser = (
     }
   }
 
-  // 2. Farmer or Customer Authentication
+  // 2. Farmer, Customer, Bulk Buyer, or Driver Authentication
   const users = getRegisteredUsers();
   
   // Find matching account
+  const cleanIdDigits = cleanId.replace(/\D/g, '');
   let account = users.find((u) => {
     if (u.role !== role) return false;
     const matchContact = u.contact.toLowerCase() === cleanId;
     const matchEmail = (u.email || '').toLowerCase() === cleanId;
-    return matchContact || matchEmail;
+    const uContactDigits = u.contact.replace(/\D/g, '');
+    const matchPhoneDigits = 
+      cleanIdDigits.length >= 10 && 
+      uContactDigits.length >= 10 && 
+      (uContactDigits.endsWith(cleanIdDigits) || cleanIdDigits.endsWith(uContactDigits));
+    return matchContact || matchEmail || matchPhoneDigits;
   });
 
   // If no account was found in storage:
-  // For easy testing, if a farmer or customer uses a recognized contact or demo input,
-  // we check if it matches seed or we auto-create with appropriate status
   if (!account) {
     if (role === 'farmer') {
-      // If someone types an unregistered farmer number, inform them to register first or use demo
       return {
         success: false,
         error: `No registered farmer found for "${identifier}". Please create an account via the Sign Up tab.`,
+      };
+    } else if (role === 'driver') {
+      return {
+        success: false,
+        error: `No registered driver found for "${identifier}". Please create an account via the Driver Sign Up tab.`,
       };
     } else {
       // Customer can log in with standard credentials
@@ -424,6 +468,13 @@ export const getFarmersList = (): UserAccount[] => {
  */
 export const getCustomersList = (): UserAccount[] => {
   return getRegisteredUsers().filter((u) => u.role === 'consumer');
+};
+
+/**
+ * Get all drivers (for Logistics & Driver Management)
+ */
+export const getDriversList = (): UserAccount[] => {
+  return getRegisteredUsers().filter((u) => u.role === 'driver');
 };
 
 /**

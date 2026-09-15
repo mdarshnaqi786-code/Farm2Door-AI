@@ -245,8 +245,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {/* Administrator Access */}
-        <div className="mt-8 text-center">
+        {/* Driver & Administrator Access */}
+        <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
+          <button
+            id="landing-driver-btn"
+            onClick={() => onSelectRole('driver')}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-stone-600 hover:text-blue-800 bg-white hover:bg-blue-50 px-4 py-2 rounded-xl border border-stone-200 hover:border-blue-300 transition-all cursor-pointer shadow-2xs"
+          >
+            <Truck className="w-4 h-4 text-blue-700" />
+            <span>Driver / Delivery Fleet Portal &rarr;</span>
+          </button>
+
           <button
             id="landing-admin-btn"
             onClick={() => onSelectRole('admin')}

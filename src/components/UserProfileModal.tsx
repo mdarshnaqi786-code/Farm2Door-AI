@@ -12,7 +12,8 @@ import {
   MapPin, 
   Wheat, 
   ShoppingBag,
-  Clock
+  Clock,
+  Truck
 } from 'lucide-react';
 import { UserAccount, SupportedLanguage } from '../types';
 import { INDIAN_LANGUAGES } from '../data/languages';
@@ -77,6 +78,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       orgVal: user.fpoOrOrgName || 'Rajan Fresh Foods Ltd.',
       location: user.location || 'Bengaluru Metro Agro-Warehouse Hub',
       highlight: 'Direct procurement contracts with verified FPOs at competitive wholesale rates.',
+    },
+    driver: {
+      roleTitle: 'Logistics Fleet Driver',
+      icon: <Truck className="w-6 h-6 text-blue-700" />,
+      badgeBg: 'bg-blue-100 text-blue-900 border-blue-300',
+      orgLabel: 'Vehicle & Plate',
+      orgVal: `${user.vehicleNumber || 'KA-51-EV-9012'} (${user.vehicleType || 'Eco Cargo EV'})`,
+      location: user.location || 'Farm2Door Regional EV Fleet Node',
+      highlight: 'Direct farm-to-door delivery fulfillment with zero tailpipe emissions and real-time status tracking.',
     },
   };
 

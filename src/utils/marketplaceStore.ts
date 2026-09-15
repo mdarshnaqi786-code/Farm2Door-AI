@@ -145,6 +145,56 @@ export const DEFAULT_ADMIN_PRICE_RANGES: AdminProductPriceRange[] = [
     unit: 'kg',
     updatedAt: 'Today',
     updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'wheat',
+    productName: 'Wheat',
+    category: 'Grains',
+    minPrice: 22,
+    maxPrice: 45,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'apple',
+    productName: 'Apple',
+    category: 'Fruits',
+    minPrice: 80,
+    maxPrice: 180,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'carrot',
+    productName: 'Carrot',
+    category: 'Vegetables',
+    minPrice: 20,
+    maxPrice: 45,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'garlic',
+    productName: 'Garlic',
+    category: 'Vegetables',
+    minPrice: 80,
+    maxPrice: 200,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
+  },
+  {
+    id: 'ginger',
+    productName: 'Ginger',
+    category: 'Vegetables',
+    minPrice: 70,
+    maxPrice: 170,
+    unit: 'kg',
+    updatedAt: 'Today',
+    updatedBy: 'Admin (naqi)'
   }
 ];
 
@@ -658,6 +708,45 @@ export function findAdminPriceRange(productName: string): AdminProductPriceRange
   });
   if (keywordMatch) return keywordMatch;
 
+  // 4. Hindi crop name / regional terms aliases mapping
+  const CROP_ALIASES: Record<string, string[]> = {
+    'tomato': ['tamatar', 'tomatoes'],
+    'onion': ['pyaz', 'pyaaz', 'onions'],
+    'potato': ['aloo', 'alu', 'potatoes'],
+    'rice': ['chawal', 'paddy', 'dhan'],
+    'wheat': ['gehun', 'gehu', 'atta'],
+    'mango': ['aam', 'mangoes'],
+    'banana': ['kela', 'kele', 'bananas'],
+    'green-chilli': ['mirch', 'mirchi', 'chilli', 'chillies'],
+    'pulses-dal': ['dal', 'daal', 'toor', 'moong', 'chana', 'urad', 'pulse', 'pulses'],
+    'spices-turmeric': ['haldi', 'turmeric', 'masala', 'spices'],
+    'dairy-ghee': ['ghee', 'makhan', 'doodh', 'milk', 'dairy', 'curd', 'paneer'],
+    'carrot': ['gajar', 'gaajar', 'carrots'],
+    'garlic': ['lahsun', 'lehsun'],
+    'ginger': ['adrak', 'adrakh'],
+    'apple': ['seb', 'apples'],
+  };
+
+  for (const [rangeId, aliases] of Object.entries(CROP_ALIASES)) {
+    if (aliases.some((alias) => trimmed.includes(alias))) {
+      const match = ranges.find((r) => r.id === rangeId);
+      if (match) return match;
+    }
+  }
+
+  // 5. Token split match
+  const productTokens = trimmed.split(/[\s,/-]+/).filter((t) => t.length >= 3);
+  for (const r of ranges) {
+    const rTokens = r.productName.toLowerCase().split(/[\s,/-]+/).filter((t) => t.length >= 3);
+    for (const pToken of productTokens) {
+      for (const rToken of rTokens) {
+        if (pToken === rToken || (pToken.length >= 4 && rToken.startsWith(pToken)) || (rToken.length >= 4 && pToken.startsWith(rToken))) {
+          return r;
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -854,12 +943,6 @@ export function saveProduct(productData: Omit<FarmerProduct, 'id'> & { id?: stri
   const pricePerUnit = Number(productData.pricePerUnit) || 0;
   const availableQty = Number(productData.availableQty) || 0;
 
-  // Enforce Admin price range constraints
-  const validation = validateFarmerPrice(productData.name, pricePerUnit, unit);
-  if (!validation.valid) {
-    throw new Error(validation.message);
-  }
-
   // Calculate fair farmer share ~80%
   const farmerShare = productData.farmerShare || Math.round(pricePerUnit * 0.8 * 10) / 10;
   const logisticsShare = productData.logisticsShare || Math.round(pricePerUnit * 0.12 * 10) / 10;
@@ -903,16 +986,6 @@ export function updateProduct(id: string, updates: Partial<FarmerProduct>): Farm
   if (index === -1) return null;
 
   const existing = products[index];
-
-  // If price or name is updated, enforce Admin price range constraints
-  if (updates.pricePerUnit !== undefined || updates.name !== undefined) {
-    const checkName = updates.name || existing.name;
-    const checkPrice = updates.pricePerUnit !== undefined ? Number(updates.pricePerUnit) : existing.pricePerUnit;
-    const validation = validateFarmerPrice(checkName, checkPrice, existing.unit);
-    if (!validation.valid) {
-      throw new Error(validation.message);
-    }
-  }
 
   const updatedProduct: FarmerProduct = {
     ...existing,
